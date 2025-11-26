@@ -5,7 +5,6 @@ from termcolor import colored
 def create_api_configs(place):
     print(colored("\n--- [ API Configuration Setup (Amass v5 & Subfinder) ] ---", "yellow", attrs=['bold']))
 
-    # 1. تجميع المفاتيح
     keys = {
         "shodan": input(colored("[?] Enter Shodan API Key: ", "green")).strip(),
         "securitytrails": input(colored("[?] Enter SecurityTrails API Key: ", "green")).strip(),
@@ -18,9 +17,7 @@ def create_api_configs(place):
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
 
-    # ==========================================
-    # A. إعداد Subfinder (زي ما هو YAML)
-    # ==========================================
+
     print(colored("\n[*] Generating Subfinder config...", "blue"))
     subfinder_yaml = "resolvers:\n  - 1.1.1.1\n  - 8.8.8.8\nsources:\n"
 
@@ -35,14 +32,12 @@ def create_api_configs(place):
         f.write(subfinder_yaml)
 
     # ==========================================
-    # B. إعداد Amass v5 (الجديد كلياً YAML)
-    # ==========================================
+
     print(colored("[*] Generating Amass v5 config (YAML)...", "blue"))
 
-    # الهيكل الجديد لـ Amass 5
     amass_yaml = "options:\n"
     amass_yaml += "  verbose: true\n"
-    amass_yaml += "data_sources:\n"  # لاحظ الفرق هنا
+    amass_yaml += "data_sources:\n"
 
     if keys["securitytrails"]:
         amass_yaml += f"""  - name: SecurityTrails
@@ -70,7 +65,7 @@ def create_api_configs(place):
       apikey: {keys['chaos']}
 """
 
-    amass_path = os.path.join(config_dir, "amass_config.yaml")  # الامتداد اتغير لـ yaml
+    amass_path = os.path.join(config_dir, "amass_config.yaml")
     with open(amass_path, "w") as f:
         f.write(amass_yaml)
 

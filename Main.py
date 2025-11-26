@@ -5,11 +5,9 @@ import telegram
 import argments
 from termcolor import colored
 import RecTool
-# قائمة المكتبات الخارجية اللي محتاجة تسطيب
 required_libs = ["termcolor","pyfiglet"]
 from pyfiglet import Figlet
 
-# تشغيل الفحص والتسطيب
 for lib in required_libs:
     RecTool.install_and_import(lib)
 f = Figlet(font='slant')

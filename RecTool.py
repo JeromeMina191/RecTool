@@ -11,10 +11,8 @@ def install_and_import(package_name):
     except ImportError:
         print(f"[!] Library '{package_name}' not found. Installing automatically...")
         try:
-            # استخدام sys.executable يضمن التسطيب لنفس نسخة البايثون الشغالة
             subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
             print(f"[+] '{package_name}' installed successfully!")
-            # إعادة استدعاء المكتبة بعد التسطيب
             globals()[package_name] = importlib.import_module(package_name)
         except Exception as e:
             print(f"[-] Critical Error: Failed to install {package_name}. {e}")
@@ -444,10 +442,6 @@ we found CVE: {cve}
 
 ######################################
 ########     CVE  Detector   ########
-# ============================================================
-# 1. دالة تنظيف الإصدار (The Cleaner)
-# وظيفتها: تحويل ['1.19.0'] أو 5.6.40-ubuntu لـ 1.19.0 فقط
-# ============================================================
 def clean_version(raw_version):
     # تحويل القائمة لنص
     if isinstance(raw_version, list):
@@ -465,11 +459,8 @@ def clean_version(raw_version):
         return match.group(1)  # يرجع الرقم الصافي
     return ver_str  # يرجع النص زي ما هو لو فشل التنظيف
 # ============================================================
-# 2. دالة البحث عن الثغرات (Exploit Searcher)
-# وظيفتها: البحث في SearchSploit وحفظ النتائج
-# ============================================================
 def check_exploits_searchsploit(product_name, version, place):
-    # تكوين جملة البحث
+
     if version:
         query = f"{product_name} {version}"
         print(colored(f"       [*] Searching Exploits for: {query}...", "cyan"))
@@ -477,7 +468,6 @@ def check_exploits_searchsploit(product_name, version, place):
         query = f"{product_name}"
         print(colored(f"       [*] Searching Generic Exploits for: {query}...", "yellow"))
 
-    # تشغيل SearchSploit وإخراج JSON
     command = f"searchsploit '{query}' --json"
 
     try:
@@ -490,47 +480,37 @@ def check_exploits_searchsploit(product_name, version, place):
             if exploits:
                 print(colored(f"       [!] FOUND {len(exploits)} Exploits/CVEs!", "red", attrs=['bold']))
 
-                # حفظ التقرير
                 report_file = os.path.join(place, "cve_exploits.txt")
                 with open(report_file, "a") as f:
                     f.write(f"\n{'=' * 50}\n")
                     f.write(f"[VULN CHECK] Target: {query}\n")
                     f.write(f"{'=' * 50}\n")
 
-                    # حفظ أول 5 نتائج فقط
                     for ex in exploits[:5]:
                         title = ex.get('Title', 'No Title')
                         edb_id = ex.get('EDB-ID', 'N/A')
 
-                        # طباعة مختصرة على الشاشة
                         print(colored(f"       └── [EDB-{edb_id}] {title[:60]}...", "yellow"))
 
-                        # كتابة التفاصيل في الملف
                         f.write(f"ID: {edb_id}\nTitle: {title}\nLink: https://www.exploit-db.com/exploits/{edb_id}\n")
                         f.write("-" * 30 + "\n")
             else:
                 print(colored("       [-] No exploits found in local DB.", "green"))
 
         except json.JSONDecodeError:
-            # لو ملقاش نتائج أحياناً مبيطلعش JSON
             print(colored("       [-] No results.", "white"))
 
     except Exception as e:
         print(colored(f"       [-] Error running searchsploit: {e}", "red"))
-# ============================================================
-# 3. الدالة الرئيسية (Manager)
-# وظيفتها: تشغيل WhatWeb وتوزيع المهام
-# ============================================================
+
 def scan_cve_full(url, place):
     print(colored(f"\n[+] Starting Advanced CMS & Vulnerability Analysis: {url}", "blue", attrs=['bold']))
 
     json_file = os.path.join(place, "whatweb_temp.json")
 
-    # تشغيل WhatWeb
     command = f"whatweb {url} --log-json {json_file} --color=never"
 
     try:
-        # تشغيل في الخلفية عشان ميزعجش المستخدم
         subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         if os.path.exists(json_file):
@@ -544,7 +524,6 @@ def scan_cve_full(url, place):
                     plugins = data[0].get('plugins', {})
                     print(colored("[+] Technologies Detected:", "green"))
 
-                    # قائمة التقنيات المهمة اللي هندور وراها
                     important_techs = [
                         'WordPress', 'Apache', 'nginx', 'PHP', 'Joomla',
                         'Drupal', 'Microsoft-IIS', 'Tomcat', 'Python', 'OpenSSL'
@@ -553,23 +532,16 @@ def scan_cve_full(url, place):
                     for name, info in plugins.items():
                         raw_version = info.get('version', '')
 
-                        # 1. تنظيف الإصدار
                         clean_ver = clean_version(raw_version)
 
-                        # 2. طباعة النتيجة
                         display_ver = clean_ver if clean_ver else "Unknown"
                         print(f"   └── {name} : {display_ver}")
 
-                        # 3. البحث عن ثغرات لو التقنية مهمة
                         if name in important_techs:
                             check_exploits_searchsploit(name, clean_ver, place)
 
                 except json.JSONDecodeError:
                     pass
-
-            # (اختياري) مسح ملف الـ JSON المؤقت بعد ما نخلص
-            # os.remove(json_file)
-
         else:
             print(colored("[-] WhatWeb output file not found.", "red"))
 
