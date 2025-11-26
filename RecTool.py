@@ -1,12 +1,26 @@
 import json
 import os
-import shutil
 import subprocess
-
-import requests
-
 import argments
 import re
+import importlib
+import sys
+def install_and_import(package_name):
+    try:
+        importlib.import_module(package_name)
+    except ImportError:
+        print(f"[!] Library '{package_name}' not found. Installing automatically...")
+        try:
+            # استخدام sys.executable يضمن التسطيب لنفس نسخة البايثون الشغالة
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+            print(f"[+] '{package_name}' installed successfully!")
+            # إعادة استدعاء المكتبة بعد التسطيب
+            globals()[package_name] = importlib.import_module(package_name)
+        except Exception as e:
+            print(f"[-] Critical Error: Failed to install {package_name}. {e}")
+            sys.exit(1)
+
+
 from termcolor import colored
 
 options=argments.setarguments()
