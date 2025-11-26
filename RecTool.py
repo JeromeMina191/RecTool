@@ -5,13 +5,15 @@ import argments
 import re
 import importlib
 import sys
+import socket
+
 def install_and_import(package_name):
     try:
         importlib.import_module(package_name)
     except ImportError:
         print(f"[!] Library '{package_name}' not found. Installing automatically...")
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+            subprocess.call(f"sudo apt-get install python3-{package_name}", shell=True)
             print(f"[+] '{package_name}' installed successfully!")
             globals()[package_name] = importlib.import_module(package_name)
         except Exception as e:
@@ -25,10 +27,11 @@ options=argments.setarguments()
 
 ########################################
 #########     SUBDUMAIN #########
-def subfinder(website, place):
+def subfinder(website, place,use_tor=False):
     print(colored(f"[+] subfinder Start: {website}", "cyan"))
+    proxy_flag = get_proxy_config("subfinder", use_tor)
     if options.api:
-        command = f"subfinder -d {website} -all -provider-config {place}/my_configsa/subfinder_config.yaml > {place}/subfinderOutput.txt"
+        command = f"subfinder -d {website} -all -provider-config {place}/my_configsa/subfinder_config.yaml > {place}/subfinderOutput.txt {proxy_flag}"
     else:
         command = f"subfinder -d {website} -all  > {place}/subfinderOutput.txt"
     try:
@@ -197,9 +200,10 @@ def downloadImportant(place):
 ########################################
 ############   SQLI   ################
 
-def scan_sqli(url, place):
+def scan_sqli(url, place,use_tor=False):
     print(colored(f"[+] Scanning for SQLi: {url}", "cyan"))
-    command = f"sqlmap -u '{url}' --batch --level 1 --risk 1 --dbs"
+    proxy_flag = get_proxy_config("sqlmap", use_tor)
+    command = f"sqlmap -u '{url}' --batch --level 1 --risk 1 --dbs {proxy_flag}"
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         output_lines = result.stdout.splitlines()
@@ -237,24 +241,24 @@ def scan_sqli(url, place):
 
     except Exception as e:
         print(colored(f"Error SQLI {url}: {e}", "red"))
-def SQLI( place):
+def SQLI( place,use_tor=False):
     try:
         with open(place + "/Parameters.txt", "r") as file:
             links = file.readlines()
         for link in links:
             link = link.strip()
             if link:
-                scan_sqli(link, place)
+                scan_sqli(link, place,use_tor)
     except Exception as e:
         print(colored("[-] Error occured while scanning", 'red'))
 
 ########################################
 ############   XSS   ################
-def scan_xss(url, place):
+def scan_xss(url, place,use_tor=False):
     print(colored(f"[+] Scanning for XSS: {url}","cyan"))
-
+    proxy_flag = get_proxy_config("dalfox", use_tor)
     # --no-color: مهم جداً عشان النصوص تتخزن نظيفة من غير رموز الألوان
-    command = f"dalfox url '{url}' --no-color"
+    command = f"dalfox url '{url}' --no-color {proxy_flag}"
 
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -286,14 +290,14 @@ def scan_xss(url, place):
 
     except Exception as e:
         print(f"Error scanning {url}: {e}")
-def XSS( place):
+def XSS( place,use_tor=False):
     try:
         with open(place + "/Parameters.txt", "r") as file:
             links = file.readlines()
         for link in links:
             link = link.strip()
             if link:
-                scan_xss(link, place)
+                scan_xss(link, place,use_tor)
     except Exception as e:
         print(colored("[-] Error occured while XSS", 'red'))
 
@@ -400,7 +404,7 @@ def count_vulnerabilities(filename):
         with open(filename, 'r') as f:
             for line in f:
                 # بنعد المرات اللي كلمة Target ظهرت فيها في بداية السطر
-                if line.strip().startswith("Target:")|"[VULN CHECK] Target" :
+                if line.strip().startswith("Target:")or"[VULN CHECK] Target" :
                     count += 1
         return count
     except FileNotFoundError:
@@ -439,7 +443,6 @@ we found CVE: {cve}
     except Exception as e:
         print(colored("[-] Error occured while Make Masege", 'red'))
 
-
 ######################################
 ########     CVE  Detector   ########
 def clean_version(raw_version):
@@ -458,7 +461,7 @@ def clean_version(raw_version):
     if match:
         return match.group(1)  # يرجع الرقم الصافي
     return ver_str  # يرجع النص زي ما هو لو فشل التنظيف
-# ============================================================
+
 def check_exploits_searchsploit(product_name, version, place):
 
     if version:
@@ -550,3 +553,36 @@ def scan_cve_full(url, place):
 
 ######################################
 ########     proxy  support   ########
+def is_tor_running():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        # بنجرب نتصل بالبورت المحلي 9050
+        return s.connect_ex(('127.0.0.1', 9050)) == 0
+def get_proxy_config(tool_name, use_tor):
+    """
+    tool_name: اسم الأداة (sqlmap, dalfox, requests...)
+    use_tor: True or False
+    """
+    # لو المستخدم مش عاوز تور، رجع فاضي
+    if not use_tor:
+        if tool_name == "requests": return None
+        return ""
+
+    # عنوان البروكسي الثابت لشبكة Tor
+    tor_proxy = "socks5://127.0.0.1:9050"
+
+    # كل أداة وليها طريقة كتابة مختلفة
+    if tool_name == "sqlmap":
+        # sqlmap بيحتاج --check-tor عشان يتأكد
+        return f" --proxy={tor_proxy} --check-tor"
+
+    elif tool_name == "dalfox":
+        return f" --proxy {tor_proxy}"
+
+    elif tool_name == "whatweb":
+        return f" --proxy {tor_proxy} --proxy-type socks5"
+
+    elif tool_name == "subfinder":
+        return f" -proxy {tor_proxy}"
+
+    return ""  # لو أداة ملهاش دعم
+

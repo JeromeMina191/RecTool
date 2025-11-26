@@ -17,12 +17,15 @@ def check_and_install(tool_name, install_command):
 
     else:
         print(colored(f"[+] {tool_name} is already installed.","green",attrs=['bold']) )
-        if tool_name == "exploitdb":
-            try:
-                subprocess.run("searchsploit -u", shell=True, check=True)
-                print("[+] ExploitDB Updated Successfully!")
-            except Exception:
-                print("[-] Warning: Could not update ExploitDB. Using current version.")
+
+        if tool_name == "exploitdb" :
+            inp = input(colored("Do you want To Update ExploitDB? (y/n)", color="yellow", attrs=['bold']))
+            if inp.lower() == "y":
+                try:
+                    subprocess.run("searchsploit -u", shell=True, check=True)
+                    print("[+] ExploitDB Updated Successfully!")
+                except Exception:
+                    print("[-] Warning: Could not update ExploitDB. Using current version.")
 
 
 def setup_environment():
