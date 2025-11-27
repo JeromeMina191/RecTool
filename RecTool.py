@@ -173,21 +173,32 @@ def extract_links(file_path,type):
 
     return links
 def downloadFiles(php_links,place,type):
-    os.makedirs(place+f"/{type}_files", exist_ok=True)
-
+    download_dir = os.path.join(place, f"{type}_files")
+    os.makedirs(download_dir, exist_ok=True)
+    print(colored(f"[+] Downloading {len(php_links)} files into: {download_dir}","yellow", attrs=["bold"]))
     for url in php_links:
-        print(f"[+] Downloading: {url}")
+        try:
+            print(colored(f"   └── Downloading: {url}","cyan"))
 
-        command = [
-            "wget",
-            "-q",
-            "-P", place+f"/{type}",
-            "--no-check-certificate",
-            "--content-disposition",
-            url
-        ]
+            command = [
+                "wget",
+                "-q",
+                "-P", download_dir,
+                "--no-check-certificate",
+                "--content-disposition",
+                url
+            ]
 
-        subprocess.run(command)
+            subprocess.run(command, check=True)
+
+        except Exception as e:
+            print(colored(f"[-] Error downloading {url}: {e}","red"))
+    try:
+
+        subprocess.run(f"chmod -R 777 {download_dir}", shell=True)
+        print(colored(f"[+]You can now edit files in: {download_dir}","yellow", attrs=["bold"]))
+    except Exception as e:
+        print(colored(f"[-] Failed to fix permissions: {e}",color="red"))
 def download(place,type):
     extract_files_urls(place,type)
     lick=extract_links(place, type)
@@ -455,13 +466,11 @@ def clean_version(raw_version):
     else:
         ver_str = str(raw_version)
 
-    # استخدام Regex لاستخراج الأرقام فقط (Major.Minor.Patch)
     match = re.search(r'([0-9]+\.[0-9]+(\.[0-9]+)?)', ver_str)
 
     if match:
-        return match.group(1)  # يرجع الرقم الصافي
-    return ver_str  # يرجع النص زي ما هو لو فشل التنظيف
-
+        return match.group(1)
+    return ver_str
 def check_exploits_searchsploit(product_name, version, place):
 
     if version:
