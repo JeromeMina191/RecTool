@@ -33,7 +33,7 @@ def setup_environment():
 
     check_and_install("go", "sudo apt update && sudo apt install -y golang")
 
-    apt_tools = ["sqlmap", "amass", "subfinder", "whatweb", "nikto", "git","exploitdb"]
+    apt_tools = ["sqlmap", "amass", "subfinder", "whatweb", "nikto", "git","exploitdb","nuclei"]
     check_and_install("whatweb", "sudo apt install -y whatweb")
     check_and_install("nikto", "sudo apt install -y nikto")
     for tool in apt_tools:

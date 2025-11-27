@@ -19,12 +19,8 @@ def install_and_import(package_name):
         except Exception as e:
             print(f"[-] Critical Error: Failed to install {package_name}. {e}")
             sys.exit(1)
-
-
 from termcolor import colored
-
 options=argments.setarguments()
-
 ########################################
 #########     SUBDUMAIN #########
 def subfinder(website, place,use_tor=False):
@@ -74,14 +70,15 @@ def subdumainEnum(website, place):
     subfinder(cleenLink, place)
     assetfinder(cleenLink, place)
     amass(cleenLink, place)
-    merge_and_clean(place)
-def merge_and_clean(path):
+    merge_and_clean(website,place)
+def merge_and_clean(website,path):
     try:
         print(colored("[+] Merging files and removing duplicates...","cyan"))
         command = f"sort -u {path}/subfinderOutput.txt {path}/assetFOutput.txt {path}/amassOutput.txt > {path}/finalSubs.txt"
         subprocess.run(command, shell=True)
+        commandT=f"sed -i '1i {website}' {path}"
+        subprocess.run(commandT, shell=True)
         print(colored("[+] Done! Saved in finalsubs.txt","cyan"))
-
     except Exception as e:
         print(colored("[-] Error occured while merging files",'red'))
 def clean_text(text, unwanted_words):
@@ -89,10 +86,6 @@ def clean_text(text, unwanted_words):
     for word in unwanted_words:
         text = text.replace(word, "")
     return text
-
-
-
-
 ########################################
 #########  CRAWLING  #########
 def crawlig(website, place):
@@ -119,10 +112,6 @@ def deepCrawl(website, place):
     except Exception as e:
         print(colored("[-] Error occured while crawlingDeep", 'red'))
         extract_parameter_urls(place)
-
-
-
-
 ########################################
 #########     EXTRACT AND DOWNLOAD  #########
 def extract_parameter_urls(place):
@@ -207,10 +196,8 @@ def downloadImportant(place):
     download(place,"js")
     download(place, "php")
     download(place, "html")
-
 ########################################
 ############   SQLI   ################
-
 def scan_sqli(url, place,use_tor=False):
     print(colored(f"[+] Scanning for SQLi: {url}", "cyan"))
     proxy_flag = get_proxy_config("sqlmap", use_tor)
@@ -262,7 +249,6 @@ def SQLI( place,use_tor=False):
                 scan_sqli(link, place,use_tor)
     except Exception as e:
         print(colored("[-] Error occured while scanning", 'red'))
-
 ########################################
 ############   XSS   ################
 def scan_xss(url, place,use_tor=False):
@@ -311,31 +297,23 @@ def XSS( place,use_tor=False):
                 scan_xss(link, place,use_tor)
     except Exception as e:
         print(colored("[-] Error occured while XSS", 'red'))
-
-
 ########################################
 ############   INFODIS AND CMS   ################
 def scan_info_disclosure_nikto(url, place):
     print(colored(f"[+] Scanning for Info Disclosure using Nikto: {url}", "cyan"))
 
-    # تفاصيل الأمر:
-    # -h: الهدف
-    # -maxtime 2m: بحد اقصى دقيقتين للفحص (عشان لو السيرفر تقيل ميعطلش التوول)
-    # -Tuning 90b: يركز على ملفات الـ SQL والملفات المهمة وكشف المعلومات (تسريع الفحص)
-    # -nointeractive: عشان ميسألش اسئلة تعطل السكريبت
+
+
     command = f"nikto -h '{url}' -maxtime 2m -nointeractive"
 
     try:
-        # Nikto بياخد وقت، فممكن نستخدم timeout في البايثون كمان
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
         output_lines = result.stdout.splitlines()
         found_info = []
 
         for line in output_lines:
-            # Nikto بيحط علامة + قدام أي حاجة مهمة لقاها
             if line.startswith("+"):
-                # تنظيف السطر
                 clean_line = line.replace("+ ", "").strip()
                 found_info.append(clean_line)
 
@@ -395,7 +373,6 @@ def scan_cms(url, place):
 
     except Exception as e:
         print(colored(f"Error CMS Scan {url}: {e}", "red"))
-
 ########################################
 ############   GET LENGTH AND SUMRIZE   ################
 def get_file_length(filename):
@@ -422,38 +399,92 @@ def count_vulnerabilities(filename):
         return 0  # لو الملف مش موجود (يعني مفيش ثغرات لسه)
 def SumrizeTxt(website,place):
     try:
-        amass = get_file_length(place + "/amassOutput.txt")
-        assetfinder = get_file_length(place + "/assetFOutput.txt")
-        subfinder = get_file_length(place + "/subfinderOutput.txt")
-        totalSubs = get_file_length(place + "/finalSubs.txt")
-        TotalParams = get_file_length(place + "/Parameters.txt")
-        sqli = count_vulnerabilities(place + "/vulnerable_sqli.txt")
-        xss = count_vulnerabilities(place + "/vulnerable_xss.txt")
+        try:
+            amass = get_file_length(place + "/amassOutput.txt")
+        except Exception as e:
+            print(colored(f"[-] Error amaas Sumrizing: {e}", "red"))
+        try:
+            assetfinder = get_file_length(place + "/assetFOutput.txt")
+        except Exception as e:
+            print(colored(f"[-] Error assetFinder: {e}", "red"))
+        try:
+            subfinder = get_file_length(place + "/subfinderOutput.txt")
+        except Exception as e:
+            print(colored(f"[-] Error subfinder: {e}", "red"))
+        try:
+            totalSubs = get_file_length(place + "/finalSubs.txt")
+        except Exception as e:
+            print(colored(f"[-] Error totalSubs: {e}", "red"))
+        try:
+            TotalParams = get_file_length(place + "/Parameters.txt")
+        except Exception as e:
+            print(colored(f"[-] Error TotalParams: {e}", "red"))
+        try:
+            sqli = count_vulnerabilities(place + "/vulnerable_sqli.txt")
+        except Exception as e:
+            print(colored(f"[-] Error sqli: {e}", "red"))
+        try:
+            xss = count_vulnerabilities(place + "/vulnerable_xss.txt")
+        except Exception as e:
+            print(colored(f"[-] Error xss: {e}", "red"))
         php = get_file_length(place + "/php.txt")
-        js = get_file_length(place + "/js.txt")
-        json=get_file_length(place + "/json.txt")
-        html = get_file_length(place + "/html.txt")
-        cve = count_vulnerabilities(place + "/cve_exploits.txt")
+        try:
+            js = get_file_length(place + "/js.txt")
+        except Exception as e:
+            print(colored(f"[-] js: {e}", "red"))
+        try:
+            json=get_file_length(place + "/json.txt")
+        except Exception as e:
+            print(colored(f"[-] json: {e}", "red"))
+        try:
+            html = get_file_length(place + "/html.txt")
+        except Exception as e:
+            print(colored(f"[-] html: {e}", "red"))
+        try:
+            cve = count_vulnerabilities(place + "/cve_exploits.txt")
+        except Exception as e:
+            print(colored(f"[-] cve: {e}", "red"))
+        try:
+            SSRF=get_file_length(place + "/ssrf.txt")
+        except Exception as e:
+            print(colored(f"[-] SSRF: {e}", "red"))
+        try:
+            lfi=get_file_length(place + "/lfi.txt")
+        except Exception as e:
+            print(colored(f"[-] lfi: {e}", "red"))
+        try:
+            cves=get_file_length(place + "/cve_nuclei_active.txt")
+        except Exception as e:
+            print(colored(f"[-] cves: {e}", "red"))
+
         return f"""
-Welcome to RecTool!
+     Welcome to RecTool!
 Your website is {website}
-we found Subdomains:
+       Subdomains
 amass: {amass}
 assetfinder: {assetfinder}
 subfinder: {subfinder}
 total Uniqe Subs: {totalSubs}
-we found parameters: {TotalParams}
-We found vulnerable XSS: {xss}
-we found vulnerable Sqli: {sqli}
-we found HTML page: {html}
-we found json: {json}
-we found php: {php}
-we found JS: {js}
-we found CVE: {cve}
+_____________________________
+       Params & Fils
+parameters: {TotalParams}
+php: {php}
+JS: {js}
+HTML page: {html}
+json: {json}
+_____________________________
+       vulnerabilty
+ vulnerable XSS: {xss}
+ vulnerable Sqli: {sqli}
+ vulnerable lfi: {lfi}
+ vulnerable ssrf: {SSRF}
+____________________________
+           CVEs
+ CVE: {cve}
+ CVE_Active: {cves}
 """
     except Exception as e:
         print(colored("[-] Error occured while Make Masege", 'red'))
-
 ######################################
 ########     CVE  Detector   ########
 def clean_version(raw_version):
@@ -514,7 +545,45 @@ def check_exploits_searchsploit(product_name, version, place):
 
     except Exception as e:
         print(colored(f"       [-] Error running searchsploit: {e}", "red"))
+def scan_cve_nuclei(place, use_tor=False):
+    targets_file = f"{place}/finalSubs.txt"
+    output_file = f"{place}/cve_nuclei_active.txt"
 
+    print(colored(f"\n[+] Starting Active CVE Scan using Nuclei (Real Exploitation)...", "cyan"))
+
+    if not os.path.exists(targets_file):
+        print(colored("[-] No targets file found for Nuclei.", "red"))
+        return
+
+    proxy_flag = ""
+    if use_tor:
+        proxy_flag = " -proxy socks5://127.0.0.1:9050"
+
+
+    command = f"nuclei -l {targets_file} -tags cves -severity critical,high,medium {proxy_flag} -o {output_file} -silent"
+
+    try:
+
+        subprocess.run(command, shell=True, timeout=900)
+
+        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+            print(colored(f"   [!!!] CONFIRMED CVEs FOUND BY NUCLEI!", "red", attrs=['bold']))
+            print(colored(f"   Check report: {output_file}", "yellow"))
+
+            with open(output_file, 'r') as f:
+                print("   Active Findings:")
+                for i, line in enumerate(f):
+                    if i < 3:
+                        print(colored(f"   └── {line.strip()}", "red"))
+                    else:
+                        break
+        else:
+            print(colored("   [-] No active CVEs detected by Nuclei.", "green"))
+
+    except subprocess.TimeoutExpired:
+        print(colored("   [-] Nuclei CVE Scan Timed out (Skipping).", "white"))
+    except Exception as e:
+        print(colored(f"   [-] Error: {e}", "red"))
 def scan_cve_full(url, place):
     print(colored(f"\n[+] Starting Advanced CMS & Vulnerability Analysis: {url}", "blue", attrs=['bold']))
 
@@ -559,7 +628,6 @@ def scan_cve_full(url, place):
 
     except Exception as e:
         print(colored(f"[-] Error in CVE Module: {e}", "red"))
-
 ######################################
 ########     proxy  support   ########
 def is_tor_running():
@@ -567,21 +635,14 @@ def is_tor_running():
         # بنجرب نتصل بالبورت المحلي 9050
         return s.connect_ex(('127.0.0.1', 9050)) == 0
 def get_proxy_config(tool_name, use_tor):
-    """
-    tool_name: اسم الأداة (sqlmap, dalfox, requests...)
-    use_tor: True or False
-    """
-    # لو المستخدم مش عاوز تور، رجع فاضي
+
     if not use_tor:
         if tool_name == "requests": return None
         return ""
 
-    # عنوان البروكسي الثابت لشبكة Tor
     tor_proxy = "socks5://127.0.0.1:9050"
 
-    # كل أداة وليها طريقة كتابة مختلفة
     if tool_name == "sqlmap":
-        # sqlmap بيحتاج --check-tor عشان يتأكد
         return f" --proxy={tor_proxy} --check-tor"
 
     elif tool_name == "dalfox":
@@ -593,5 +654,90 @@ def get_proxy_config(tool_name, use_tor):
     elif tool_name == "subfinder":
         return f" -proxy {tor_proxy}"
 
-    return ""  # لو أداة ملهاش دعم
+    return ""
+#######################################
+#############    SSRF     #############
+def scan_ssrf_mass(place, use_tor=False):
+    # الفايل اللي جمعنا فيه اللينكات اللي فيها براميترات
+    targets_file = f"{place}/Parameters.txt"
+    output_file = f"{place}/ssrf.txt"
 
+    print(colored(f"\n[+] Starting Massive SSRF Scan on all targets...", "magenta"))
+
+    if not os.path.exists(targets_file):
+        print(colored("[-] No targets file found to scan.", "red"))
+        return
+
+    # إعداد البروكسي
+    proxy_flag = ""
+    if use_tor:
+        proxy_flag = " -proxy socks5://127.0.0.1:9050"
+
+    # الأمر السحري:
+    # -l: بنحددله ليستة (فايل) بدل رابط واحد (-u)
+    # -tags ssrf: دور على ssrf بس
+    command = f"nuclei -l {targets_file} -tags ssrf {proxy_flag} -o {output_file} -silent"
+
+    try:
+        # وقت أطول شوية (10 دقايق) عشان ده فحص جماعي
+        subprocess.run(command, shell=True, timeout=600)
+
+        # فحص النتائج
+        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+            print(colored(f"   [!!!] SSRF VULNERABILITIES FOUND!", "red", attrs=['bold']))
+            print(colored(f"   Check report: {output_file}", "yellow"))
+
+            # عرض عينة من النتائج
+            with open(output_file, 'r') as f:
+                print("   Samples:")
+                for i, line in enumerate(f):
+                    if i < 5:
+                        print(colored(f"   └── {line.strip()}", "yellow"))
+                    else:
+                        break
+        else:
+            print(colored("   [-] No SSRF found in any target.", "white"))
+
+    except subprocess.TimeoutExpired:
+        print(colored("   [-] Scan Timed out.", "white"))
+    except Exception as e:
+        print(colored(f"   [-] Error: {e}", "red"))
+#######################################
+############    LFI      ##############
+def scan_lfi_nuclei(place, use_tor=False):
+    targets_file = f"{place}/Parameters.txt"
+    output_file = f"{place}/lfi.txt"
+
+    print(colored(f"\n[+] Starting LFI Scan...", "yellow", attrs=['bold']))
+
+    if not os.path.exists(targets_file):
+        print(colored("[-] No targets found (Parameters.txt is missing).", "red"))
+        return
+
+    # إعداد البروكسي
+    proxy_flag = ""
+    if use_tor:
+        proxy_flag = " -proxy socks5://127.0.0.1:9050"
+
+    # الأمر:
+    # -tags lfi: بنقوله هات قوالب الـ lfi بس
+    command = f"nuclei -l {targets_file} -tags lfi {proxy_flag} -o {output_file} -silent"
+
+    try:
+        # LFI سريع نسبياً، كفاية 5 دقايق
+        subprocess.run(command, shell=True, timeout=300)
+
+        # فحص النتائج
+        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+            print(colored(f"   [!!!] LFI VULNERABILITIES FOUND (Nuclei)!", "red", attrs=['bold']))
+
+            with open(output_file, 'r') as f:
+                for line in f:
+                    print(colored(f"   └── {line.strip()}", "yellow"))
+        else:
+            print(colored("   [-] No LFI found by Nuclei.", "white"))
+
+    except subprocess.TimeoutExpired:
+        print(colored("   [-] LFI Scan Timed out.", "white"))
+    except Exception as e:
+        print(colored(f"   [-] Error: {e}", "red"))

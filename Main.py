@@ -51,6 +51,7 @@ if tor_input == 'y':
             print(colored("    Hint: Run 'sudo service tor start' in terminal.", "white"))
             use_tor_mode = False
 try:
+
      print(colored(f"[+] subEnum Starting: {website}", "yellow",attrs=['bold']))
      RecTool.subdumainEnum(website,place)
      print(colored(f"[+] crawling Starting: {website}", "yellow",attrs=['bold'] ))
@@ -61,13 +62,18 @@ try:
      RecTool.SQLI(place,use_tor_mode)
      print(colored(f"[+] XSS Starting: {website}", "yellow",attrs=['bold']))
      RecTool.XSS(place,use_tor_mode)
-     total=RecTool.SumrizeTxt(website, place)
+     print(colored(f"[+] SSRF: {website}", "yellow",attrs=['bold']))
+     RecTool.SSRF(place, use_tor_mode)
+     print(colored(f"[+] LFI: {website}", "yellow",attrs=['bold']))
+     RecTool.scan_lfi_nuclei(place, use_tor_mode)
      print(colored(f"[+] cms: {website}", "yellow",attrs=['bold']))
      RecTool.scan_cms(website, place)
      print(colored(f"[+] infoDis: {website}", "yellow",attrs=['bold']))
      RecTool.scan_info_disclosure_nikto(website, place)
      print(colored(f"[+] CVESearch: {website}", "yellow",attrs=['bold']))
      RecTool.scan_cve_full(website, place)
+     RecTool.scan_cve_nuclei(place, use_tor_mode)
+     total = RecTool.SumrizeTxt(website, place)
      telegram.send_telegram_message(total,BOT_TOKEN,chat_id)
 
 
