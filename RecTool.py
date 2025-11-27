@@ -6,7 +6,6 @@ import re
 import importlib
 import sys
 import socket
-
 def install_and_import(package_name):
     try:
         importlib.import_module(package_name)
@@ -76,7 +75,7 @@ def merge_and_clean(website,path):
         print(colored("[+] Merging files and removing duplicates...","cyan"))
         command = f"sort -u {path}/subfinderOutput.txt {path}/assetFOutput.txt {path}/amassOutput.txt > {path}/finalSubs.txt"
         subprocess.run(command, shell=True)
-        commandT=f"sed -i '1i {website}' {path}"
+        commandT=f"sed -i '1i {website}' {path}/finalSubs.txt"
         subprocess.run(commandT, shell=True)
         print(colored("[+] Done! Saved in finalsubs.txt","cyan"))
     except Exception as e:
@@ -392,7 +391,7 @@ def count_vulnerabilities(filename):
         with open(filename, 'r') as f:
             for line in f:
                 # بنعد المرات اللي كلمة Target ظهرت فيها في بداية السطر
-                if line.strip().startswith("Target:")or"[VULN CHECK] Target" :
+                if line.strip().startswith("Target:") or line.strip().startswith("[VULN CHECK]"):
                     count += 1
         return count
     except FileNotFoundError:

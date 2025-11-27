@@ -1,11 +1,7 @@
 import subprocess
 import shutil
-
 from termcolor import colored
-
-
 def check_and_install(tool_name, install_command):
-
     if shutil.which(tool_name) is None:
         print(colored(f"[!] {tool_name} not found. Installing...","cyan") )
         try:

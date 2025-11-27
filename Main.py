@@ -1,4 +1,3 @@
-
 import Checker
 import ConfigCreator
 import telegram
@@ -13,8 +12,6 @@ for lib in required_libs:
 f = Figlet(font='slant')
 print(colored(f.renderText('RecTool'), 'red'))
 options = argments.setarguments()
-
-
 if options.telegram :
     print("Go to "+colored("@RecToolbot",color='cyan')+" in telegram chat and send"+colored(" /start ",'red') )
     print("Get your chat id from "+colored("@userinfobot",'cyan')+" and send"+colored(" /start ",'red') )
@@ -22,15 +19,10 @@ if options.telegram :
     BOT_TOKEN = "8562953467:AAHLJdPliM5RsvOKiXpI5yr3LSGJ5jVn65w"
     chat_id = input(colored("Enter your Telegram chat ID: ","cyan"))
     telegram.send_telegram_message("WE WILL SEND YOU EVERTHING",BOT_TOKEN,chat_id)
-
-
-
-
 if(options.place!=None):
     place=options.place.rstrip("/")
 else:
     place="."
-
 website=options.website
 if options.api :
     ConfigCreator.create_api_configs(place)
@@ -63,7 +55,7 @@ try:
      print(colored(f"[+] XSS Starting: {website}", "yellow",attrs=['bold']))
      RecTool.XSS(place,use_tor_mode)
      print(colored(f"[+] SSRF: {website}", "yellow",attrs=['bold']))
-     RecTool.SSRF(place, use_tor_mode)
+     RecTool.scan_ssrf_mass(place, use_tor_mode)
      print(colored(f"[+] LFI: {website}", "yellow",attrs=['bold']))
      RecTool.scan_lfi_nuclei(place, use_tor_mode)
      print(colored(f"[+] cms: {website}", "yellow",attrs=['bold']))

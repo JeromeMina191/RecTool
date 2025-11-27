@@ -1,7 +1,5 @@
 import requests
 from termcolor import colored
-
-
 def send_telegram_message(message,BOT_TOKEN,chat_id):
     if len(message) > 4000:
         for i in range(0, len(message), 4000):
@@ -15,8 +13,6 @@ def send_telegram_message(message,BOT_TOKEN,chat_id):
         print(colored("[+]Message sent successfully",'cyan'))
     else:
         print(colored("[+]Failed to send:",'red'), r.text)
-
-
 def send_file_content(file_path,BOT_TOKEN,chat_id):
     try:
         with open(file_path, "r", encoding="utf-8") as f:

@@ -1,10 +1,7 @@
 import os
 from termcolor import colored
-
-
 def create_api_configs(place):
     print(colored("\n--- [ API Configuration Setup (Amass v5 & Subfinder) ] ---", "yellow", attrs=['bold']))
-
     keys = {
         "shodan": input(colored("[?] Enter Shodan API Key: ", "green")).strip(),
         "securitytrails": input(colored("[?] Enter SecurityTrails API Key: ", "green")).strip(),
