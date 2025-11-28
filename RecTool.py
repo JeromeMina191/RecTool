@@ -13,7 +13,7 @@ if options.telegram :
     print("Go to "+colored("@RecToolbot",color='cyan')+" in telegram chat and send"+colored(" /start ",'red') )
     print("Get your chat id from "+colored("@userinfobot",'cyan')+" and send"+colored(" /start ",'red') )
     print("  " )
-    BOT_TOKEN = "8562953467:AAHLJdPliM5RsvOKiXpI5yr3LSGJ5jVn65w"
+    BOT_TOKEN = input(colored("Enter Bot token Telegram: ","cyan"))
     chat_id = input(colored("Enter your Telegram chat ID: ","cyan"))
     telegram.send_telegram_message("WE WILL SEND YOU EVERTHING",BOT_TOKEN,chat_id)
 if(options.place!=None):
