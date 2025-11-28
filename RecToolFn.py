@@ -1001,7 +1001,6 @@ def generate_json_report(domain, place):
             "lfi": read_lines("lfi.txt"),  # أو lfi_nuclei.txt
             "ssrf": read_lines("ssrf.txt"),
             "info_disclosure": read_lines("info_disclosure_nikto.txt"),
-            "sensitive_files": read_lines("sensitive_files.txt")
         },
         "technology_stack": parse_cms_file("cms_results.txt"),
         "exploits_detected": parse_cve_file("cve_exploits.txt"),
