@@ -1,11 +1,12 @@
-import json
-import os
+from datetime import datetime
 import subprocess
 import argments
 import re
 import importlib
 import sys
 import socket
+
+
 def install_and_import(package_name):
     try:
         importlib.import_module(package_name)
@@ -746,8 +747,6 @@ def scan_lfi_nuclei(place, use_tor=False):
 ############ Report Generator #########
 import json
 import os
-from datetime import datetime
-from termcolor import colored
 
 
 def generate_json_report(domain, place):
