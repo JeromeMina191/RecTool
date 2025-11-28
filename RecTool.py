@@ -5,7 +5,6 @@ import argments
 from termcolor import colored
 import RecToolFn
 from pyfiglet import Figlet
-
 f = Figlet(font='slant')
 print(colored(f.renderText('RecTool'), 'red'))
 options = argments.setarguments()
@@ -24,7 +23,6 @@ website=options.website
 if options.api :
     ConfigCreator.create_api_configs(place)
 Checker.setup_environment()
-
 print(colored("[+] make sure you are running tor befor use it!", "yellow"))
 print(colored("[+] to run it :", "cyan")+colored(" sudo apt install -y tor","red",))
 print(colored(" sudo service tor start","red"))
@@ -66,8 +64,6 @@ try:
      if options.telegram:
         total = RecToolFn.SumrizeTxt(website, place)
         telegram.send_telegram_message(total,BOT_TOKEN,chat_id)
-
-
 except Exception as e:
     print(colored("[-] Error occured while scanning",'red'))
 

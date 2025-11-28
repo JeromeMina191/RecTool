@@ -56,7 +56,7 @@ You don't need to manually install the external tools. **RecTool handles the set
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/JeromeMina191/RecTool.git](https://github.com/JeromeMina191/RecTool.git)
+git clone https://github.com/JeromeMina191/RecTool.git
 
 # 2. Navigate to the directory
 cd RecTool
