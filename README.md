@@ -30,7 +30,7 @@ The tool follows a strict, logical pipeline to ensure maximum coverage:
     * Fingerprints technologies using **WhatWeb**.
     * Maps detected versions to **ExploitDB (SearchSploit)** to find CVEs and public exploits locally.
 5.  **📢 Notifications:**
-    * Real-time alerts sent directly to your **Telegram Bot** ([@RecToolvot](https://t.me/RecToolvot)).
+    * Real-time alerts sent directly to your **Telegram Bot** ([@RecToolbot](https://t.me/RecToolbot)).
 6.  **📊 Reporting:**
     * Generates a final **JSON Report** summarizing all findings.
 
