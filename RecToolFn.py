@@ -2,23 +2,9 @@ from datetime import datetime
 import subprocess
 import argments
 import re
-import importlib
-import sys
+import os
+import json
 import socket
-
-
-def install_and_import(package_name):
-    try:
-        importlib.import_module(package_name)
-    except ImportError:
-        print(f"[!] Library '{package_name}' not found. Installing automatically...")
-        try:
-            subprocess.call(f"sudo apt-get install python3-{package_name}", shell=True)
-            print(f"[+] '{package_name}' installed successfully!")
-            globals()[package_name] = importlib.import_module(package_name)
-        except Exception as e:
-            print(f"[-] Critical Error: Failed to install {package_name}. {e}")
-            sys.exit(1)
 from termcolor import colored
 options=argments.setarguments()
 ########################################
@@ -745,10 +731,6 @@ def scan_lfi_nuclei(place, use_tor=False):
         print(colored(f"   [-] Error: {e}", "red"))
 #######################################
 ############ Report Generator #########
-import json
-import os
-
-
 def generate_json_report(domain, place):
     print(colored(f"\n[+] Generating Final JSON Report...", "cyan", attrs=['bold']))
 
