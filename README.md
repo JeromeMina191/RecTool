@@ -65,4 +65,4 @@ cd RecTool
 pip3 install -r requirements.txt
 
 # 4. Run the tool (Use sudo for full permissions)
-sudo python3 final_tool.py
+sudo python3 RecTool.py
