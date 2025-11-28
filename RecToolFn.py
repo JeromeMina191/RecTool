@@ -80,6 +80,8 @@ def merge_and_clean(website,path):
         print(colored("[+] Done! Saved in finalsubs.txt","cyan"))
     except Exception as e:
         print(colored("[-] Error occured while merging files",'red'))
+        commandT = f"sed -i '1i {website}' {path}/finalSubs.txt"
+        subprocess.run(commandT, shell=True)
 def clean_text(text, unwanted_words):
 
     for word in unwanted_words:
@@ -740,3 +742,283 @@ def scan_lfi_nuclei(place, use_tor=False):
         print(colored("   [-] LFI Scan Timed out.", "white"))
     except Exception as e:
         print(colored(f"   [-] Error: {e}", "red"))
+#######################################
+############ Report Generator #########
+import json
+import os
+from datetime import datetime
+from termcolor import colored
+
+
+def generate_json_report(domain, place):
+    print(colored(f"\n[+] Generating Final JSON Report...", "cyan", attrs=['bold']))
+
+    # ==============================================================================
+    # 1. SQL Injection Parser (Supports Multiple Targets)
+    # ==============================================================================
+    def parse_sqli_file(filename):
+        file_path = os.path.join(place, filename)
+        if not os.path.exists(file_path): return []
+
+        results = []
+        current_target = None  # نبدأ بـ None عشان نعرف إننا لسه ممسكناش تارجت
+        current_type = None
+
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+
+            for line in lines:
+                line = line.strip()
+
+                # بداية تارجت جديد
+                if line.startswith("Target:"):
+                    # لو كان معانا تارجت قديم (مش None)، نحفظه في الليسته الأول
+                    if current_target is not None:
+                        results.append(current_target)
+
+                    # نجهز التارجت الجديد
+                    current_target = {
+                        "url": line.replace("Target:", "").strip(),
+                        "payloads": []
+                    }
+                    current_type = None  # تصفير نوع الثغرة للتارجت الجديد
+
+                # التقاط النوع
+                elif line.startswith("[*] Type:"):
+                    if current_target is not None:
+                        current_type = line.replace("[*] Type:", "").strip()
+
+                # التقاط البايلود
+                elif line.startswith("[*] Payload:"):
+                    if current_target is not None and current_type:
+                        payload_data = line.replace("[*] Payload:", "").strip()
+                        current_target["payloads"].append({
+                            "type": current_type,
+                            "payload": payload_data
+                        })
+                        # ملاحظة: مش هنصفر current_type هنا لأن ممكن نفس النوع ليه كذا بايلود،
+                        # بس في SQLMap عادة النوع بيتكتب قبل كل بايلود، فمش هتفرق.
+
+            # أهم نقطة: حفظ آخر تارجت في الملف بعد ما اللوب تخلص
+            if current_target is not None:
+                results.append(current_target)
+
+            return results
+
+        except Exception as e:
+            print(f"Error parsing SQLi file: {e}")
+            return []
+
+    # ==============================================================================
+    # 2. XSS (Dalfox) Parser (Supports Multiple Targets)
+    # ==============================================================================
+    def parse_xss_file(filename):
+        file_path = os.path.join(place, filename)
+        if not os.path.exists(file_path): return []
+
+        results = []
+        current_target = None
+
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+
+            for line in lines:
+                line = line.strip()
+
+                # بداية تارجت جديد
+                if line.startswith("Target:"):
+                    if current_target is not None:
+                        results.append(current_target)
+
+                    current_target = {
+                        "url": line.replace("Target:", "").strip(),
+                        "pocs": []
+                    }
+
+                # التقاط البايلود (يبدأ بسهم ->)
+                elif line.startswith("->"):
+                    if current_target is not None:
+                        raw_poc = line.replace("->", "").strip()
+
+                        # محاولة تنظيف الشكل: [R][GET] http://...
+                        parts = raw_poc.split(" ", 1)
+                        if len(parts) == 2:
+                            current_target["pocs"].append({
+                                "info": parts[0],  # [R][GET][inHTML]
+                                "payload_url": parts[1]  # الرابط المحقون
+                            })
+                        else:
+                            current_target["pocs"].append({"raw_poc": raw_poc})
+
+            # حفظ آخر تارجت
+            if current_target is not None:
+                results.append(current_target)
+
+            return results
+
+        except Exception as e:
+            print(f"Error parsing XSS file: {e}")
+            return []
+
+    # ==============================================================================
+    # 3. Helper Functions (للملفات البسيطة وعد الملفات)
+    # ==============================================================================
+    def read_lines(filename):
+        path = os.path.join(place, filename)
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                return [l.strip() for l in f if l.strip()]
+        return []
+
+    def count_files(dirname):
+        path = os.path.join(place, dirname)
+        return len(os.listdir(path)) if os.path.exists(path) else 0
+
+        # =========================================================
+        # 1. محلل ملف CVE Exploits (SearchSploit)
+        # =========================================================
+    def parse_cve_file(filename):
+            file_path = os.path.join(place, filename)
+            if not os.path.exists(file_path): return []
+
+            results = []
+            current_target = None
+            current_exploit = {}
+
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+
+                for line in lines:
+                    line = line.strip()
+
+                    # بداية تارجت جديد (اسم البرنامج)
+                    if line.startswith("[VULN CHECK] Target:"):
+                        # حفظ التارجت السابق
+                        if current_target:
+                            results.append(current_target)
+
+                        target_name = line.replace("[VULN CHECK] Target:", "").strip()
+                        current_target = {
+                            "software": target_name,
+                            "exploits": []
+                        }
+
+                    # بيانات الثغرة
+                    elif line.startswith("ID:"):
+                        current_exploit = {"id": line.replace("ID:", "").strip()}
+                    elif line.startswith("Title:"):
+                        current_exploit["title"] = line.replace("Title:", "").strip()
+                    elif line.startswith("Link:"):
+                        current_exploit["link"] = line.replace("Link:", "").strip()
+
+                    # الفاصل بين الثغرات (---) يعني الثغرة خلصت
+                    elif line.startswith("---") or line.startswith("==="):
+                        if current_target and current_exploit:
+                            # نضيف الثغرة للتارجت الحالي
+                            current_target["exploits"].append(current_exploit)
+                            current_exploit = {}  # تصفير
+
+                # حفظ آخر تارجت وآخر ثغرة
+                if current_target:
+                    if current_exploit: current_target["exploits"].append(current_exploit)
+                    results.append(current_target)
+
+                return results
+            except Exception as e:
+                print(f"Error parsing CVE file: {e}")
+                return []
+
+    # =========================================================
+    # 2. محلل ملف CMS (WhatWeb)
+    # =========================================================
+    def parse_cms_file(filename):
+            file_path = os.path.join(place, filename)
+            if not os.path.exists(file_path): return {}
+
+            cms_data = {
+                "target": "",
+                "server_info": {},
+                "detected_technologies": []
+            }
+
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+
+                for line in lines:
+                    line = line.strip()
+
+                    if line.startswith("Target:"):
+                        cms_data["target"] = line.replace("Target:", "").strip()
+
+                    # استخراج المعلومات الأساسية
+                    elif line.startswith("IP"):
+                        cms_data["server_info"]["ip"] = line.split(":")[-1].strip()
+                    elif line.startswith("Country"):
+                        cms_data["server_info"]["country"] = line.split(":")[-1].strip()
+                    elif line.startswith("Title"):
+                        cms_data["server_info"]["title"] = line.split(":", 1)[-1].strip()
+
+                    # تحليل سطر الـ Summary المهم جداً
+                    elif line.startswith("Summary"):
+                        raw_summary = line.split(":", 1)[-1].strip()
+                        # Summary بيجي شكله: PHP[5.6], HTTPServer[nginx]
+                        # هنقسمه لفاصلة عشان نطلع التقنيات
+                        techs = raw_summary.split(", ")
+                        for tech in techs:
+                            cms_data["detected_technologies"].append(tech.strip())
+
+                return cms_data
+            except Exception as e:
+                print(f"Error parsing CMS file: {e}")
+                return {}
+
+    # ==============================================================================
+    # 4. بناء التقرير النهائي (The Master Structure)
+    # ==============================================================================
+    report = {
+        "scan_metadata": {
+            "target_domain": domain,
+            "scan_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "tool": "RecTool - DEPI Project"
+        },
+        "reconnaissance": {
+            "subdomains_count": len(read_lines("finalSubs.txt")),
+            "subdomains_list": read_lines("finalSubs.txt"),  # اختياري لو القائمة مش ضخمة
+            "urls_crawled_count": len(read_lines("hackrwlerurls.txt")),
+            "fuzzing_targets_count": len(read_lines("Parameters.txt"))
+        },
+        "downloads": {
+            "js_files": count_files("js_files"),
+            "php_files": count_files("php_files"),
+            "json_files": count_files("json_files")
+        },
+        "vulnerabilities": {
+            "sql_injection": parse_sqli_file("vulnerable_sqli.txt"),
+            "xss": parse_xss_file("vulnerable_xss.txt"),
+            "lfi": read_lines("lfi.txt"),  # أو lfi_nuclei.txt
+            "ssrf": read_lines("ssrf.txt"),
+            "info_disclosure": read_lines("info_disclosure_nikto.txt"),
+            "sensitive_files": read_lines("sensitive_files.txt")
+        },
+        "technology_stack": parse_cms_file("cms_results.txt"),
+        "exploits_detected": parse_cve_file("cve_exploits.txt"),
+        "active_cves_verified": read_lines("cve_nuclei_active.txt")
+    }
+
+    # =========================================================
+    # 5. حفظ التقرير
+    # =========================================================
+    output_path = os.path.join(place, "Final_Report.json")
+    try:
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=4, ensure_ascii=False)
+        print(colored(f"[+] Final JSON Report Generated: {output_path}", "green", attrs=['bold']))
+        return output_path
+    except Exception as e:
+        print(colored(f"[-] Error saving JSON: {e}", "red"))
+        return None
+

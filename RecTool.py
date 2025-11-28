@@ -62,8 +62,10 @@ try:
      print(colored(f"[+] CVESearch: {website}", "yellow",attrs=['bold']))
      RecToolFn.scan_cve_full(website, place)
      RecToolFn.scan_cve_nuclei(place, use_tor_mode)
-     total = RecToolFn.SumrizeTxt(website, place)
-     telegram.send_telegram_message(total,BOT_TOKEN,chat_id)
+     RecToolFn.generate_json_report(website, place)
+     if options.telegram:
+        total = RecToolFn.SumrizeTxt(website, place)
+        telegram.send_telegram_message(total,BOT_TOKEN,chat_id)
 
 
 except Exception as e:
