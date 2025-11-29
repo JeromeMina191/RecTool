@@ -6,6 +6,7 @@ import os
 import json
 import socket
 from termcolor import colored
+import google.generativeai as genai
 options=argments.setarguments()
 ########################################
 #########     SUBDUMAIN #########
@@ -960,4 +961,30 @@ def generate_json_report(domain, place):
     except Exception as e:
         print(colored(f"[-] Error saving JSON: {e}", "red"))
         return None
+#######################################
+############       AI   ###############
+def generate_ai_report(json_data):
+    api_key = os.getenv("GEMINI_API_KEY")
 
+    # لو مفيش مفتاح، اخرج بهدوء
+    if not api_key:
+        print("[!] No Gemini API Key found. Skipping AI Analysis.")
+        return
+
+    print("[*] Generative AI is analyzing vulnerabilities...")
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-pro')
+
+        prompt = f"Analyze this vulnerability report and suggest fixes: {json_data}"
+        response = model.generate_content(prompt)
+
+        # احفظ النتيجة في فايل جديد
+        with open("AI_Report.md", "w") as f:
+            f.write(response.text)
+
+        print("[+] AI Report Generated: AI_Report.md")
+
+    except Exception as e:
+        print(f"[!] AI Error: {e}")

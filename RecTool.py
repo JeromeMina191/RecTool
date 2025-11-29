@@ -5,6 +5,7 @@ import argments
 from termcolor import colored
 import RecToolFn
 from pyfiglet import Figlet
+
 f = Figlet(font='slant')
 print(colored(f.renderText('RecTool'), 'red'))
 options = argments.setarguments()
@@ -37,35 +38,35 @@ if tor_input == 'y':
             print(colored("[-] Tor service is NOT running! Continuing without Proxy.", "red"))
             print(colored("    Hint: Run 'sudo service tor start' in terminal.", "white"))
             use_tor_mode = False
-try:
-
-     print(colored(f"[+] subEnum Starting: {website}", "yellow",attrs=['bold']))
-     RecToolFn.subdumainEnum(website,place)
-     print(colored(f"[+] crawling Starting: {website}", "yellow",attrs=['bold'] ))
-     RecToolFn.deepCrawl(website,place)
-     print(colored(f"[+] Downloading: {website}", "yellow",attrs=['bold']))
-     RecToolFn.downloadImportant(place)
-     print(colored(f"[+] SQLI Starting: {website}", "yellow",attrs=['bold']))
-     RecToolFn.SQLI(place,use_tor_mode)
-     print(colored(f"[+] XSS Starting: {website}", "yellow",attrs=['bold']))
-     RecToolFn.XSS(place,use_tor_mode)
-     print(colored(f"[+] SSRF: {website}", "yellow",attrs=['bold']))
-     RecToolFn.scan_ssrf_mass(place, use_tor_mode)
-     print(colored(f"[+] LFI: {website}", "yellow",attrs=['bold']))
-     RecToolFn.scan_lfi_nuclei(place, use_tor_mode)
-     print(colored(f"[+] cms: {website}", "yellow",attrs=['bold']))
-     RecToolFn.scan_cms(website, place)
-     print(colored(f"[+] infoDis: {website}", "yellow",attrs=['bold']))
-     RecToolFn.scan_info_disclosure_nikto(website, place)
-     print(colored(f"[+] CVESearch: {website}", "yellow",attrs=['bold']))
-     RecToolFn.scan_cve_full(website, place)
-     RecToolFn.scan_cve_nuclei(place, use_tor_mode)
-     RecToolFn.generate_json_report(website, place)
-     if options.telegram:
-        total = RecToolFn.SumrizeTxt(website, place)
-        telegram.send_telegram_message(total,BOT_TOKEN,chat_id)
-except Exception as e:
-    print(colored("[-] Error occured while scanning",'red'))
+# try:
+#
+#      print(colored(f"[+] subEnum Starting: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.subdumainEnum(website,place)
+#      print(colored(f"[+] crawling Starting: {website}", "yellow",attrs=['bold'] ))
+#      RecToolFn.deepCrawl(website,place)
+#      print(colored(f"[+] Downloading: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.downloadImportant(place)
+#      print(colored(f"[+] SQLI Starting: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.SQLI(place,use_tor_mode)
+#      print(colored(f"[+] XSS Starting: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.XSS(place,use_tor_mode)
+#      print(colored(f"[+] SSRF: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.scan_ssrf_mass(place, use_tor_mode)
+#      print(colored(f"[+] LFI: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.scan_lfi_nuclei(place, use_tor_mode)
+#      print(colored(f"[+] cms: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.scan_cms(website, place)
+#      print(colored(f"[+] infoDis: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.scan_info_disclosure_nikto(website, place)
+#      print(colored(f"[+] CVESearch: {website}", "yellow",attrs=['bold']))
+#      RecToolFn.scan_cve_full(website, place)
+#      RecToolFn.scan_cve_nuclei(place, use_tor_mode)
+#      RecToolFn.generate_json_report(website, place)
+#      if options.telegram:
+#         total = RecToolFn.SumrizeTxt(website, place)
+#         telegram.send_telegram_message(total,BOT_TOKEN,chat_id)
+# except Exception as e:
+#     print(colored("[-] Error occured while scanning",'red'))
 
 
 
