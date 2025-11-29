@@ -963,8 +963,8 @@ def generate_json_report(domain, place):
         return None
 #######################################
 ############       AI   ###############
-def generate_ai_report(json_data):
-    api_key = os.getenv("GEMINI_API_KEY")
+def generate_ai_report(apikey,json_data):
+    api_key = apikey
 
     # لو مفيش مفتاح، اخرج بهدوء
     if not api_key:

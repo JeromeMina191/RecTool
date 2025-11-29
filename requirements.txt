@@ -3,3 +3,5 @@ termcolor
 pyfiglet
 PySocks
 google-generativeai
+dotenv
+json

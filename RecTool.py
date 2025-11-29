@@ -1,3 +1,7 @@
+import os
+
+import json
+
 import Checker
 import ConfigCreator
 import telegram
@@ -5,6 +9,17 @@ import argments
 from termcolor import colored
 import RecToolFn
 from pyfiglet import Figlet
+from dotenv import load_dotenv
+# 1. هات مسار الفولدر اللي فيه ملف البايثون الحالي (RecTool.py)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 2. ركب عليه اسم ملف .env
+env_path = os.path.join(current_dir, '.env')
+
+loaded = load_dotenv(env_path)
+
+api_key = os.getenv("GEMINI_API_KEY")
+load_dotenv()
 
 f = Figlet(font='slant')
 print(colored(f.renderText('RecTool'), 'red'))
@@ -13,8 +28,8 @@ if options.telegram :
     print("Go to "+colored("@RecToolbot",color='cyan')+" in telegram chat and send"+colored(" /start ",'red') )
     print("Get your chat id from "+colored("@userinfobot",'cyan')+" and send"+colored(" /start ",'red') )
     print("  " )
-    BOT_TOKEN = input(colored("Enter Bot token Telegram: ","cyan"))
-    chat_id = input(colored("Enter your Telegram chat ID: ","cyan"))
+    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN"),
+    chat_id = os.getenv("TELEGRAM_CHAT_ID"),
     telegram.send_telegram_message("WE WILL SEND YOU EVERTHING",BOT_TOKEN,chat_id)
 if(options.place!=None):
     place=options.place.rstrip("/")
@@ -69,6 +84,20 @@ if tor_input == 'y':
 #     print(colored("[-] Error occured while scanning",'red'))
 
 
+json_file_path = "final_report.json"  # أو المتغير اللي شايل مسار الملف
+
+# 2. اتأكد إن الملف موجود أصلاً (عشان الكود مايضربش لو الاسكان فشل)
+if os.path.exists(json_file_path):
+
+    # 3. افتح الملف واقرأ اللي فيه وحوله لمتغير (Dictionary/List)
+    with open(json_file_path, 'r', encoding='utf-8') as f:
+        data_from_file = json.load(f)  # السطر ده السحر كله
+
+    # 4. دلوقتي ابعت المتغير ده لدالة الـ AI
+    RecToolFn.generate_ai_report(os.getenv("GEMINI_API_KEY"),data_from_file)
+
+else:
+    print(f"[!] Error: File {json_file_path} not found!")
 
 
 
