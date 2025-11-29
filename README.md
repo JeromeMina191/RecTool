@@ -62,7 +62,7 @@ git clone https://github.com/JeromeMina191/RecTool.git
 cd RecTool
 
 # 3. Install Python requirements
-pip3 install -r requirements.txt
+pip3 install -r requirements.txt --break-system-packages
 
 # 4. Run the tool (Use sudo for full permissions)
 sudo python3 RecTool.py
