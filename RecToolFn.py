@@ -620,7 +620,6 @@ def scan_cve_full(url, place):
 ########     proxy  support   ########
 def is_tor_running():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        # بنجرب نتصل بالبورت المحلي 9050
         return s.connect_ex(('127.0.0.1', 9050)) == 0
 def get_proxy_config(tool_name, use_tor):
 
@@ -646,7 +645,6 @@ def get_proxy_config(tool_name, use_tor):
 #######################################
 #############    SSRF     #############
 def scan_ssrf_mass(place, use_tor=False):
-    # الفايل اللي جمعنا فيه اللينكات اللي فيها براميترات
     targets_file = f"{place}/Parameters.txt"
     output_file = f"{place}/ssrf.txt"
 
@@ -702,20 +700,16 @@ def scan_lfi_nuclei(place, use_tor=False):
         print(colored("[-] No targets found (Parameters.txt is missing).", "red"))
         return
 
-    # إعداد البروكسي
     proxy_flag = ""
     if use_tor:
         proxy_flag = " -proxy socks5://127.0.0.1:9050"
 
-    # الأمر:
-    # -tags lfi: بنقوله هات قوالب الـ lfi بس
+
     command = f"nuclei -l {targets_file} -tags lfi {proxy_flag} -o {output_file} -silent"
 
     try:
-        # LFI سريع نسبياً، كفاية 5 دقايق
         subprocess.run(command, shell=True, timeout=300)
 
-        # فحص النتائج
         if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
             print(colored(f"   [!!!] LFI VULNERABILITIES FOUND (Nuclei)!", "red", attrs=['bold']))
 
@@ -734,15 +728,12 @@ def scan_lfi_nuclei(place, use_tor=False):
 def generate_json_report(domain, place):
     print(colored(f"\n[+] Generating Final JSON Report...", "cyan", attrs=['bold']))
 
-    # ==============================================================================
-    # 1. SQL Injection Parser (Supports Multiple Targets)
-    # ==============================================================================
     def parse_sqli_file(filename):
         file_path = os.path.join(place, filename)
         if not os.path.exists(file_path): return []
 
         results = []
-        current_target = None  # نبدأ بـ None عشان نعرف إننا لسه ممسكناش تارجت
+        current_target = None
         current_type = None
 
         try:
@@ -752,25 +743,21 @@ def generate_json_report(domain, place):
             for line in lines:
                 line = line.strip()
 
-                # بداية تارجت جديد
                 if line.startswith("Target:"):
-                    # لو كان معانا تارجت قديم (مش None)، نحفظه في الليسته الأول
                     if current_target is not None:
                         results.append(current_target)
 
-                    # نجهز التارجت الجديد
                     current_target = {
                         "url": line.replace("Target:", "").strip(),
                         "payloads": []
                     }
-                    current_type = None  # تصفير نوع الثغرة للتارجت الجديد
+                    current_type = None
 
-                # التقاط النوع
                 elif line.startswith("[*] Type:"):
                     if current_target is not None:
                         current_type = line.replace("[*] Type:", "").strip()
 
-                # التقاط البايلود
+
                 elif line.startswith("[*] Payload:"):
                     if current_target is not None and current_type:
                         payload_data = line.replace("[*] Payload:", "").strip()
@@ -778,10 +765,8 @@ def generate_json_report(domain, place):
                             "type": current_type,
                             "payload": payload_data
                         })
-                        # ملاحظة: مش هنصفر current_type هنا لأن ممكن نفس النوع ليه كذا بايلود،
-                        # بس في SQLMap عادة النوع بيتكتب قبل كل بايلود، فمش هتفرق.
 
-            # أهم نقطة: حفظ آخر تارجت في الملف بعد ما اللوب تخلص
+
             if current_target is not None:
                 results.append(current_target)
 
@@ -791,9 +776,7 @@ def generate_json_report(domain, place):
             print(f"Error parsing SQLi file: {e}")
             return []
 
-    # ==============================================================================
-    # 2. XSS (Dalfox) Parser (Supports Multiple Targets)
-    # ==============================================================================
+
     def parse_xss_file(filename):
         file_path = os.path.join(place, filename)
         if not os.path.exists(file_path): return []
@@ -808,7 +791,6 @@ def generate_json_report(domain, place):
             for line in lines:
                 line = line.strip()
 
-                # بداية تارجت جديد
                 if line.startswith("Target:"):
                     if current_target is not None:
                         results.append(current_target)
@@ -818,12 +800,10 @@ def generate_json_report(domain, place):
                         "pocs": []
                     }
 
-                # التقاط البايلود (يبدأ بسهم ->)
                 elif line.startswith("->"):
                     if current_target is not None:
                         raw_poc = line.replace("->", "").strip()
 
-                        # محاولة تنظيف الشكل: [R][GET] http://...
                         parts = raw_poc.split(" ", 1)
                         if len(parts) == 2:
                             current_target["pocs"].append({
@@ -833,7 +813,6 @@ def generate_json_report(domain, place):
                         else:
                             current_target["pocs"].append({"raw_poc": raw_poc})
 
-            # حفظ آخر تارجت
             if current_target is not None:
                 results.append(current_target)
 
@@ -843,9 +822,6 @@ def generate_json_report(domain, place):
             print(f"Error parsing XSS file: {e}")
             return []
 
-    # ==============================================================================
-    # 3. Helper Functions (للملفات البسيطة وعد الملفات)
-    # ==============================================================================
     def read_lines(filename):
         path = os.path.join(place, filename)
         if os.path.exists(path):
@@ -857,9 +833,7 @@ def generate_json_report(domain, place):
         path = os.path.join(place, dirname)
         return len(os.listdir(path)) if os.path.exists(path) else 0
 
-        # =========================================================
-        # 1. محلل ملف CVE Exploits (SearchSploit)
-        # =========================================================
+
     def parse_cve_file(filename):
             file_path = os.path.join(place, filename)
             if not os.path.exists(file_path): return []
@@ -875,9 +849,7 @@ def generate_json_report(domain, place):
                 for line in lines:
                     line = line.strip()
 
-                    # بداية تارجت جديد (اسم البرنامج)
                     if line.startswith("[VULN CHECK] Target:"):
-                        # حفظ التارجت السابق
                         if current_target:
                             results.append(current_target)
 
@@ -887,7 +859,6 @@ def generate_json_report(domain, place):
                             "exploits": []
                         }
 
-                    # بيانات الثغرة
                     elif line.startswith("ID:"):
                         current_exploit = {"id": line.replace("ID:", "").strip()}
                     elif line.startswith("Title:"):
@@ -895,14 +866,11 @@ def generate_json_report(domain, place):
                     elif line.startswith("Link:"):
                         current_exploit["link"] = line.replace("Link:", "").strip()
 
-                    # الفاصل بين الثغرات (---) يعني الثغرة خلصت
                     elif line.startswith("---") or line.startswith("==="):
                         if current_target and current_exploit:
-                            # نضيف الثغرة للتارجت الحالي
                             current_target["exploits"].append(current_exploit)
-                            current_exploit = {}  # تصفير
+                            current_exploit = {}
 
-                # حفظ آخر تارجت وآخر ثغرة
                 if current_target:
                     if current_exploit: current_target["exploits"].append(current_exploit)
                     results.append(current_target)
@@ -912,9 +880,6 @@ def generate_json_report(domain, place):
                 print(f"Error parsing CVE file: {e}")
                 return []
 
-    # =========================================================
-    # 2. محلل ملف CMS (WhatWeb)
-    # =========================================================
     def parse_cms_file(filename):
             file_path = os.path.join(place, filename)
             if not os.path.exists(file_path): return {}
@@ -943,11 +908,9 @@ def generate_json_report(domain, place):
                     elif line.startswith("Title"):
                         cms_data["server_info"]["title"] = line.split(":", 1)[-1].strip()
 
-                    # تحليل سطر الـ Summary المهم جداً
                     elif line.startswith("Summary"):
                         raw_summary = line.split(":", 1)[-1].strip()
                         # Summary بيجي شكله: PHP[5.6], HTTPServer[nginx]
-                        # هنقسمه لفاصلة عشان نطلع التقنيات
                         techs = raw_summary.split(", ")
                         for tech in techs:
                             cms_data["detected_technologies"].append(tech.strip())
@@ -957,9 +920,7 @@ def generate_json_report(domain, place):
                 print(f"Error parsing CMS file: {e}")
                 return {}
 
-    # ==============================================================================
-    # 4. بناء التقرير النهائي (The Master Structure)
-    # ==============================================================================
+
     report = {
         "scan_metadata": {
             "target_domain": domain,
@@ -989,9 +950,7 @@ def generate_json_report(domain, place):
         "active_cves_verified": read_lines("cve_nuclei_active.txt")
     }
 
-    # =========================================================
-    # 5. حفظ التقرير
-    # =========================================================
+
     output_path = os.path.join(place, "Final_Report.json")
     try:
         with open(output_path, 'w', encoding='utf-8') as f:
