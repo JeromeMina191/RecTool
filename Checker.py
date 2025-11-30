@@ -67,7 +67,7 @@ def setup_environment():
                     "red"))
                 exit()
     else:
-        print(colored("[+] Katana is already installed.", "green"))
+        print(colored("[+] Katana is already installed.", "green",attrs=['bold']))
 
     # Dalfox
     if shutil.which("dalfox") is None:
