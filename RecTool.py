@@ -68,6 +68,7 @@ try:
      RecToolFn.scan_ssrf_mass(place, use_tor_mode)
      print(colored(f"[+] LFI: {website}", "yellow",attrs=['bold']))
      RecToolFn.scan_lfi_nuclei(place, use_tor_mode)
+     RecToolFn.run_lfi_scan(place, threads=20)
      print(colored(f"[+] cms: {website}", "yellow",attrs=['bold']))
      RecToolFn.scan_cms(website, place)
      print(colored(f"[+] infoDis: {website}", "yellow",attrs=['bold']))

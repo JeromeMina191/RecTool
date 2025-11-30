@@ -53,7 +53,7 @@ def setup_environment():
             move_cmd = "sudo cp ~/go/bin/katana /usr/local/bin/ 2>/dev/null || sudo cp /root/go/bin/katana /usr/local/bin/"
             os.system(move_cmd)
 
-            print(colored("[+] Katana installed successfully via Go!", "green"))
+            print(colored("[+] Katana installed successfully via Go!", "green",attrs=['bold']))
 
         except subprocess.CalledProcessError:
             # محاولة 2: لو Go مش موجود، نجرب apt (نسخة كالي)
