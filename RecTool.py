@@ -11,14 +11,10 @@ import RecToolFn
 from pyfiglet import Figlet
 from dotenv import load_dotenv
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
 env_path = os.path.join(current_dir, '.env')
-
 loaded = load_dotenv(env_path)
-
 api_key = os.getenv("GEMINI_API_KEY")
 load_dotenv()
-
 f = Figlet(font='slant')
 print(colored(f.renderText('RecTool'), 'red'))
 options = argments.setarguments()
