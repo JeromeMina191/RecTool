@@ -10,10 +10,8 @@ from termcolor import colored
 import RecToolFn
 from pyfiglet import Figlet
 from dotenv import load_dotenv
-# 1. هات مسار الفولدر اللي فيه ملف البايثون الحالي (RecTool.py)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-# 2. ركب عليه اسم ملف .env
 env_path = os.path.join(current_dir, '.env')
 
 loaded = load_dotenv(env_path)
@@ -64,12 +62,12 @@ try:
      RecToolFn.SQLI(place,use_tor_mode)
      print(colored(f"[+] XSS Starting: {website}", "yellow",attrs=['bold']))
      RecToolFn.XSS(place,use_tor_mode)
+     print(colored(f"[+] LFI: {website}", "yellow", attrs=['bold']))
+     RecToolFn.scan_lfi_nuclei(place, use_tor_mode)
+     RecToolFn.run_lfi_scan(place, threads=20)
      print(colored(f"[+] SSRF: {website}", "yellow",attrs=['bold']))
      RecToolFn.scan_ssrf_mass(place, use_tor_mode)
      RecToolFn.run_ssrf_scan(place, threads=20)
-     print(colored(f"[+] LFI: {website}", "yellow",attrs=['bold']))
-     RecToolFn.scan_lfi_nuclei(place, use_tor_mode)
-     RecToolFn.run_lfi_scan(place, threads=20)
      print(colored(f"[+] cms: {website}", "yellow",attrs=['bold']))
      RecToolFn.scan_cms(website, place)
      print(colored(f"[+] infoDis: {website}", "yellow",attrs=['bold']))
@@ -83,15 +81,12 @@ try:
         telegram.send_telegram_message(total,BOT_TOKEN,chat_id)
 except Exception as e:
      print(colored("[-] Error occured while scanning",'red'))
-json_file_path =place +"/Final_Report.json"  # أو المتغير اللي شايل مسار الملف
-# 2. اتأكد إن الملف موجود أصلاً (عشان الكود مايضربش لو الاسكان فشل)
+json_file_path =place +"/Final_Report.json"
 if os.path.exists(json_file_path):
 
-    # 3. افتح الملف واقرأ اللي فيه وحوله لمتغير (Dictionary/List)
     with open(json_file_path, 'r', encoding='utf-8') as f:
-        data_from_file = json.load(f)  # السطر ده السحر كله
+        data_from_file = json.load(f)
 
-    # 4. دلوقتي ابعت المتغير ده لدالة الـ AI
 
     RecToolFn.generate_ai_report(os.getenv("GEMINI_API_KEY"),data_from_file,place)
 
