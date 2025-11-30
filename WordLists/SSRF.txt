@@ -1,0 +1,17 @@
+http://127.0.0.1
+http://localhost
+http://0.0.0.0
+http://[::1]
+http://169.254.169.254/latest/meta-data/
+http://169.254.169.254/computeMetadata/v1/
+http://100.100.100.200/latest/meta-data/
+file:///etc/passwd
+dict://127.0.0.1:22
+ignored.com%0d%0aHost:%20{host}
+ignored.com%0d%0aX-Forwarded-Host:%20{host}
+ignored.com%0d%0aX-Real-IP:%20{host}
+ignored.com%0d%0aGET%20/index.html%20HTTP/1.1%0d%0aHost:%20{host}%0d%0aConnection:%20close%0d%0a%0d%0a
+ignored.com%0d%0aGET%20http://{host}/%20HTTP/1.1%0d%0aHeader:%20value
+ignored.com%0aHost:%20{host}
+ignored.com%0dHost:%20{host}
+ignored.com%20%0d%0aHost:%20{host}

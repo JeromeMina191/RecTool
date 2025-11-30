@@ -1,7 +1,7 @@
 from datetime import datetime
 import subprocess
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
-
+from urllib.parse import  unquote
 import argments
 import re
 import os
@@ -519,7 +519,7 @@ def SumrizeTxt(website,place):
         except Exception as e:
             print(colored(f"[-] SSRF: {e}", "red"))
         try:
-            lfi=get_file_length(place + "/lfi.txt")
+            lfi=get_file_length(place + "/lfi.txt")+get_file_length(place + "/lfi_results.txt")
         except Exception as e:
             print(colored(f"[-] lfi: {e}", "red"))
         try:
@@ -770,9 +770,6 @@ def scan_ssrf_mass(place, use_tor=False):
         print(colored("   [-] Scan Timed out.", "white"))
     except Exception as e:
         print(colored(f"   [-] Error: {e}", "red"))
-#######################################
-############    LFI      ##############
-
 
 #######################################
 ############ Report Generator #########
@@ -971,7 +968,109 @@ def generate_json_report(domain, place):
                 print(f"Error parsing CMS file: {e}")
                 return {}
 
+    def parse_lfi_file(filename):
+        """
+        تقرأ ملف LFI وتحوله لقائمة بيانات منظمة للتقرير
+        """
+        results = []
+        file_path = os.path.join(place, filename)
+        # التأكد إن الملف موجود أصلاً
+        if not os.path.exists(file_path):
+            return []
 
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+
+            # Regex لفصل نوع الثغرة عن الرابط
+            # النمط: [وصف الثغرة] رابط
+            log_pattern = re.compile(r"^\[(.*?)\]\s+(http.*)$")
+
+            for line in lines:
+                line = line.strip()
+                if not line: continue
+
+                match = log_pattern.match(line)
+                if match:
+                    vuln_desc = match.group(1)  # مثلا: System File Access (/etc/passwd)
+                    full_url = match.group(2)  # الرابط الكامل
+
+                    # استخراج البايلود والبارميتر المصاب عشان التقرير يكون احترافي
+                    parsed_url = urlparse(full_url)
+                    params = parse_qs(parsed_url.query)
+
+                    infected_param = "unknown"
+                    payload_decoded = "unknown"
+
+                    # بندور في البارميترات عشان نلاقي البايلود ونفك تشفيره
+                    for key, value in params.items():
+                        val = value[0]
+                        decoded_val = unquote(val)
+                        # لو لقينا علامات الـ Traversal او etc/passwd يبقى ده البارميتر المصاب
+                        if "../" in decoded_val or "/etc/passwd" in decoded_val or ".." in decoded_val:
+                            infected_param = key
+                            payload_decoded = decoded_val
+                            break
+                    results.append({
+                        "type": "Local File Inclusion (LFI)",
+                        "description": vuln_desc,
+                        "url": full_url,
+                        "vulnerable_parameter": infected_param,
+                        "payload": payload_decoded
+                    })
+                    return results
+        except Exception as e:
+            print(f"Error parsing LFI file: {e}")
+            return []
+
+    def parse_ssrf_file(filename):
+        """
+        تحويل نتائج SSRF لنظام JSON
+        """
+        file_path = os.path.join(place, filename)
+        results = []
+        if not os.path.exists(file_path):
+            return []
+
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+
+            log_pattern = re.compile(r"^\[(.*?)\]\s+(http.*)$")
+
+            for line in lines:
+                line = line.strip()
+                match = log_pattern.match(line)
+                if match:
+                    vuln_desc = match.group(1)
+                    full_url = match.group(2)
+
+                    # محاولة استخراج البايلود
+                    parsed_url = urlparse(full_url)
+                    params = parse_qs(parsed_url.query)
+                    infected_param = "unknown"
+                    payload = "unknown"
+
+                    # بندور على البايلودز المعروفة جوه البراميترات
+                    for key, value in params.items():
+                        val = unquote(value[0])
+                        # لو القيمة فيها ip او localhost او 169.254
+                        if "127.0.0.1" in val or "localhost" in val or "169.254" in val or "file://" in val:
+                            infected_param = key
+                            payload = val
+                            break
+
+                    results.append({
+                        "type": "Server-Side Request Forgery (SSRF)",
+                        "description": vuln_desc,
+                        "url": full_url,
+                        "vulnerable_parameter": infected_param,
+                        "payload": payload
+                    })
+        except Exception as e:
+            print(f"Error parsing SSRF file: {e}")
+
+        return results
     report = {
         "scan_metadata": {
             "target_domain": domain,
@@ -992,9 +1091,10 @@ def generate_json_report(domain, place):
         "vulnerabilities": {
             "sql_injection": parse_sqli_file("vulnerable_sqli.txt"),
             "xss": parse_xss_file("vulnerable_xss.txt"),
-            "lfi": read_lines("lfi.txt"),  # أو lfi_nuclei.txt
-            "ssrf": read_lines("ssrf.txt"),
+            "lfi": parse_lfi_file("lfi_results.txt"),
+            "ssrf": parse_ssrf_file("SSRF_results.txt"),
             "info_disclosure": read_lines("info_disclosure_nikto.txt"),
+
         },
         "technology_stack": parse_cms_file("cms_results.txt"),
         "exploits_detected": parse_cve_file("cve_exploits.txt"),
@@ -1027,7 +1127,47 @@ def generate_ai_report(apikey,json_data,place):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-pro-latest')
 
-        prompt = f"Analyze this vulnerability report and suggest fixes: {json_data}"
+        prompt = f"""
+        ACT AS A SENIOR CYBERSECURITY CONSULTANT AND PENETRATION TESTER.
+        
+        YOUR TASK:
+        Analyze the provided JSON vulnerability scan data from the tool "RecTool" (DEPI Graduation Project) and generate a world-class, comprehensive penetration test report in Markdown format.
+
+        TARGET AUDIENCE:
+        1. Executive Management (High-level risk overview).
+        2. Developers & System Admins (Technical remediation and code fixes).
+
+        REPORT STRUCTURE & REQUIREMENTS:
+
+        1. 🚨 EXECUTIVE SUMMARY
+           - Provide an overall "Security Score" (0-100) based on findings.
+           - Create a Markdown Table summarizing counts: [Critical, High, Medium, Low].
+           - Write a short paragraph explaining the business impact (Financial loss, Reputation damage) if these are not fixed.
+
+        2. 🔍 DETAILED VULNERABILITY ANALYSIS (Iterate through findings)
+           For each vulnerability found in the JSON:
+           - **Title & Severity:** Use emojis (e.g., 🔴 Critical, 🟠 High).
+           - **The Location:** Specific URL and Parameter.
+           - **The Attack Vector:** Explain HOW the payload works in simple terms.
+           - **Business Impact:** What can an attacker actually DO? (e.g., "Dump the entire database", "Access server files").
+
+        3. 🛠️ REMEDIATION & CODE PATCHES (THE MOST IMPORTANT PART)
+           - Detect the technology stack from the URLs (e.g., if .php -> provide PHP code, if .py -> Python).
+           - **Vulnerable Code Example:** Write a hypothetical snippet of how the code likely looks right now.
+           - **Secure Code Patch:** Write the CORRECT, SECURE code using industry best practices (e.g., Prepared Statements for SQLi, Input Sanitization for XSS).
+           
+        4. 🛡️ DEFENSE IN DEPTH SUGGESTIONS
+           - Suggest WAF rules or server configurations (like .htaccess or Nginx config) to block these attacks globally.
+
+        INPUT DATA:
+        {json_data}
+
+        OUTPUT FORMAT:
+        - Use professional Markdown.
+        - Use bolding, lists, and code blocks (` ``` `) extensively.
+        - Tone: Urgent but Professional.
+        - If the JSON is empty or has no vulnerabilities, write a "Certificate of Clean Health" but suggest general hardening.
+        """
         response = model.generate_content(prompt)
 
         # احفظ النتيجة في فايل جديد
@@ -1089,7 +1229,6 @@ DEFAULT_PAYLOADS = [
     "php://filter/convert.base64-encode/resource=index.php"
 ]
 
-
 def load_payloads_from_file(file_path):
     """
     بتقرأ البايلودز من ملف خارجي
@@ -1108,7 +1247,6 @@ def load_payloads_from_file(file_path):
     except Exception as e:
         print(colored(f"[!] Error reading payload file: {e}", "red"))
         return DEFAULT_PAYLOADS
-
 
 def generate_malicious_urls(url, payloads_list):
     """
@@ -1138,7 +1276,6 @@ def generate_malicious_urls(url, payloads_list):
 
     return malicious_links
 
-
 def scan_single_url(target_url):
     """
     الفانكشن اللي بتشتغل جوه الـ Thread
@@ -1160,7 +1297,6 @@ def scan_single_url(target_url):
         pass
 
     return None
-
 
 def run_lfi_scan(place, threads=20):
     """
@@ -1217,4 +1353,136 @@ def run_lfi_scan(place, threads=20):
                     f.write(f"[{vuln_type}] {vuln_url}\n")
 
     print(colored(f"\n[+] Scan Finished. Found {len(vulnerabilities)} vulnerabilities.", "green"))
+    return vulnerabilities
+############################################
+##############     SSRF       ##############
+def load_payloads_from_file(file_path):
+    """تحميل البايلودز من ملف خارجي"""
+    if not file_path or not os.path.exists(file_path):
+        print(colored(f"[!] SSRF Payload file '{file_path}' not found. Using default list.", "yellow"))
+        return DEFAULT_PAYLOADS
+
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            payloads = [line.strip() for line in f if line.strip()]
+        print(colored(f"[*] Loaded {len(payloads)} custom SSRF payloads.", "cyan"))
+        return payloads
+    except Exception as e:
+        print(colored(f"[!] Error reading payload file: {e}", "red"))
+        return DEFAULT_PAYLOADS
+
+
+def generate_ssrf_vectors(url, payloads_list):
+    """حقن البايلودز داخل البراميترات"""
+    parsed = urlparse(url)
+    query_params = parse_qs(parsed.query)
+
+    if not query_params:
+        return []
+
+    vectors = []
+
+    for param_name in query_params:
+        for payload in payloads_list:
+            new_params = query_params.copy()
+            # استبدال القيمة بالكامل بالرابط الخبيث
+            new_params[param_name] = [payload]
+
+            new_query = urlencode(new_params, doseq=True)
+            new_parts = list(parsed)
+            new_parts[4] = new_query
+            full_url = urlunparse(new_parts)
+
+            vectors.append(full_url)
+
+    return vectors
+
+
+def scan_single_url(target_url):
+    """فحص الرابط ومحاولة اكتشاف استجابة السيرفر الداخلي"""
+    try:
+        req = requests.get(target_url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=False)
+        content = req.text
+
+        # 1. AWS Metadata Leak
+        if "ami-id" in content or "instance-id" in content:
+            if "169.254" in target_url:
+                return (target_url, "SSRF (AWS Metadata Leak)")
+
+        # 2. Local File Access (File Protocol)
+        if "root:x:0:0" in content and "file://" in target_url:
+            return (target_url, "SSRF (Local File Read)")
+
+        # 3. Google Cloud Metadata
+        if "computeMetadata" in target_url and "Google" in req.headers.get("Metadata-Flavor", ""):
+            return (target_url, "SSRF (GCP Metadata Leak)")
+
+        # 4. Open Ports / Internal Services (SSH Banner usually)
+        if "SSH-" in content and "dict://" in target_url:
+            return (target_url, "SSRF (Internal Port Scan)")
+
+        # 5. Localhost detection (Generic)
+        # دي صعبة شوية لانها بتعتمد على اختلاف الصفحة، بس ممكن نشيك على كلمات مشهورة
+        if "localhost" in target_url or "127.0.0.1" in target_url:
+            if "Apache 2 Test Page" in content or "It works!" in content:
+                return (target_url, "SSRF (Localhost Access)")
+
+    except requests.exceptions.Timeout:
+        # أحيانا التايم أوت معناه انه حاول يتصل ب IP داخلي ومردش، دي علامة Blind SSRF بس صعبة التحديد
+        pass
+    except:
+        pass
+
+    return None
+
+
+def run_ssrf_scan(place, threads=20):
+    print(colored(f"\n--- [ SSRF Scanner Module ] ---", "yellow", attrs=['bold']))
+    output_file = f"{place}/SSRF_results.txt"
+    urls_file_path = f"{place}/Parameters.txt"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    payloads_file_path = os.path.join(current_dir, 'WordLists', 'SSRF.txt')
+    # تحميل البايلودز
+    current_payloads = load_payloads_from_file(payloads_file_path)
+
+    # قراءة الروابط
+    if not os.path.exists(urls_file_path):
+        print(colored(f"[!] URLs file not found: {urls_file_path}", "red"))
+        return
+
+    with open(urls_file_path, 'r') as f:
+        # يفضل هنا تستخدم دالة smart_filter_urls اللي عملناها المرة اللي فاتت
+        urls = [line.strip() for line in f if line.strip()]
+
+    # تجهيز المهام
+    tasks = []
+    print(colored("[*] Generating SSRF vectors...", "blue"))
+
+    for url in urls:
+        vectors = generate_ssrf_vectors(url, current_payloads)
+        tasks.extend(vectors)
+
+    if not tasks:
+        print(colored("[!] No parameters found to test for SSRF.", "yellow"))
+        return
+
+    print(colored(f"[*] Total Requests: {len(tasks)} | Threads: {threads}", "cyan"))
+
+    # التشغيل
+    vulnerabilities = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        results = executor.map(scan_single_url, tasks)
+
+        for res in results:
+            if res:
+                vuln_url, vuln_type = res
+                print(colored(f"\n[+] VULNERABILITY FOUND! ({vuln_type})", "red", attrs=['bold']))
+                print(colored(f"    URL: {vuln_url}", "white"))
+
+                vulnerabilities.append(f"[{vuln_type}] {vuln_url}")
+
+                with open(output_file, "a") as f:
+                    f.write(f"[{vuln_type}] {vuln_url}\n")
+
+    print(colored(f"\n[+] SSRF Scan Finished. Found {len(vulnerabilities)} vulnerabilities.", "green"))
     return vulnerabilities
