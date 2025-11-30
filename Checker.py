@@ -36,7 +36,7 @@ def setup_environment():
     for tool in apt_tools:
         check_and_install(tool, f"sudo apt install -y {tool}")
     if shutil.which("katana") is None:
-        print(colored("[!] Katana not found. Installing it now...", "yellow"))
+     print(colored("[!] Katana not found. Installing it now...", "yellow"))
 
         try:
             # محاولة 1: التسطيب عن طريق Go (الطريقة الرسمية والأضمن)
