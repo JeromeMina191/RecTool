@@ -4,3 +4,4 @@ pyfiglet
 PySocks
 google-generativeai
 python-dotenv
+groq

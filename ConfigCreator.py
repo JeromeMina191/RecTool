@@ -1,9 +1,7 @@
 import os
 from dotenv import load_dotenv
-# 1. هات مسار الفولدر اللي فيه ملف البايثون الحالي (RecTool.py)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-# 2. ركب عليه اسم ملف .env
 env_path = os.path.join(current_dir, '.env')
 
 loaded = load_dotenv(env_path)

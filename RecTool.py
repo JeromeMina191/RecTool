@@ -32,20 +32,21 @@ website=options.website
 if options.api :
     ConfigCreator.create_api_configs(place)
 Checker.setup_environment()
-print(colored("[+] make sure you are running tor befor use it!", "yellow"))
-print(colored("[+] to run it :", "cyan")+colored(" sudo apt install -y tor","red",))
-print(colored(" sudo service tor start","red"))
-tor_input = input(colored("[?] Do you want to use Tor Proxy? (y/n): ", "yellow",attrs=['bold'])).lower().strip()
+# print(colored("[+] make sure you are running tor befor use it!", "yellow"))
+# print(colored("[+] to run it :", "cyan")+colored(" sudo apt install -y tor","red",))
+# print(colored(" sudo service tor start","red"))
+#tor_input = input(colored("[?] Do you want to use Tor Proxy? (y/n): ", "yellow",attrs=['bold'])).lower().strip()
+
 use_tor_mode = False
-if tor_input == 'y':
-        # لازم نتأكد إن الخدمة شغالة الأول
-        if RecToolFn.is_tor_running():
-            use_tor_mode = True
-            print(colored("[+] Tor Mode Enabled. Traffic will be anonymized.", "green",attrs=['bold']))
-        else:
-            print(colored("[-] Tor service is NOT running! Continuing without Proxy.", "red"))
-            print(colored("    Hint: Run 'sudo service tor start' in terminal.", "white"))
-            use_tor_mode = False
+# if tor_input == 'y':
+#         # لازم نتأكد إن الخدمة شغالة الأول
+#         if RecToolFn.is_tor_running():
+#             use_tor_mode = True
+#             print(colored("[+] Tor Mode Enabled. Traffic will be anonymized.", "green",attrs=['bold']))
+#         else:
+#             print(colored("[-] Tor service is NOT running! Continuing without Proxy.", "red"))
+#             print(colored("    Hint: Run 'sudo service tor start' in terminal.", "white"))
+#             use_tor_mode = False
 try:
 
      print(colored(f"[+] subEnum Starting: {website}", "yellow",attrs=['bold']))
@@ -68,6 +69,7 @@ try:
      RecToolFn.scan_cms(website, place)
      print(colored(f"[+] infoDis: {website}", "yellow",attrs=['bold']))
      RecToolFn.scan_info_disclosure_nikto(website, place)
+     RecToolFn.scan_cms(website, place)
      print(colored(f"[+] CVESearch: {website}", "yellow",attrs=['bold']))
      RecToolFn.scan_cve_full(website, place)
      RecToolFn.scan_cve_nuclei(place, use_tor_mode)
@@ -83,8 +85,8 @@ if os.path.exists(json_file_path):
     with open(json_file_path, 'r', encoding='utf-8') as f:
         data_from_file = json.load(f)
 
-
-    RecToolFn.generate_ai_report(os.getenv("GEMINI_API_KEY"),data_from_file,place)
+    #RecToolFn.generate_ai_report_gorq(os.getenv("GORQ_API_KEY"),data_from_file,place)
+    RecToolFn.generate_ai_report(os.getenv("GEMINI_API_KEY"),os.getenv("GORQ_API_KEY"),data_from_file,place)
 
 else:
     print(f"[!] Error: File {json_file_path} not found!")

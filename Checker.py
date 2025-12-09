@@ -39,24 +39,19 @@ def setup_environment():
         print(colored("[!] Katana not found. Installing it now...", "yellow"))
 
         try:
-            # محاولة 1: التسطيب عن طريق Go (الطريقة الرسمية والأضمن)
-            # بنفترض إن Go متسطب على Kali (وهو غالباً موجود)
+
             print(colored("[*] Trying to install via Go...", "blue"))
 
-            # أمر التسطيب
             install_cmd = "go install github.com/projectdiscovery/katana/cmd/katana@latest"
             subprocess.run(install_cmd, shell=True, check=True)
 
-            # خطوة مهمة: نقل الملف لمكان عام عشان يشتغل من أي حتة
-            # Go بينزل الملفات في ~/go/bin/
-            # هننقله لـ /usr/local/bin/
+
             move_cmd = "sudo cp ~/go/bin/katana /usr/local/bin/ 2>/dev/null || sudo cp /root/go/bin/katana /usr/local/bin/"
             os.system(move_cmd)
 
             print(colored("[+] Katana installed successfully via Go!", "green",attrs=['bold']))
 
         except subprocess.CalledProcessError:
-            # محاولة 2: لو Go مش موجود، نجرب apt (نسخة كالي)
             print(colored("[!] Go install failed. Trying apt...", "yellow"))
             try:
                 subprocess.run("sudo apt update && sudo apt install katana -y", shell=True, check=True)

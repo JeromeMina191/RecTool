@@ -12,6 +12,7 @@ import google.generativeai as genai
 import concurrent.futures
 options=argments.setarguments()
 import requests
+from groq import Groq
 ########################################
 #########     SUBDUMAIN #########
 def subfinder(website, place,use_tor=False):
@@ -121,7 +122,7 @@ def crawlig(website, place):
 def deepCrawl(website, place):
     try:
         print(colored(f"[+] Crawling: {website}", "cyan"))
-        crawlig(website, place)
+        combine(website, place)
 
         with open(place + "/finalSubs.txt", "r") as file:
             links = file.readlines()
@@ -151,31 +152,23 @@ def extract_parameter_urls(place):
 
     ignored_extensions = (".jpg", ".jpeg", ".png", ".gif", ".css", ".js", ".svg", ".woff", ".ico")
 
-    unique_urls = []  # لتخزين الروابط النهائية
-    seen_signatures = set()  # لتخزين "بصمة" الرابط لمنع التكرار
+    unique_urls = []
+    seen_signatures = set()
 
     count = 0
     try:
-        # 1. القراءة والفلترة في الذاكرة
         if os.path.exists(input_file):
             with open(input_file, 'r', encoding='utf-8', errors='ignore') as f_in:
                 for line in f_in:
                     url = line.strip()
 
-                    # الشرط الأول: وجود باراميترات
                     if "?" in url and "=" in url:
-                        # الشرط الثاني: الامتدادات
                         if not url.lower().endswith(ignored_extensions):
-
-                            # === اللوجيك الذكي (Smart Deduplication) ===
                             try:
                                 parsed = urlparse(url)
-                                # بنجيب أسماء الباراميترات (keys) فقط من غير القيم
                                 query_params = parse_qs(parsed.query)
                                 param_keys = tuple(sorted(query_params.keys()))
 
-                                # البصمة = الدومين + المسار + أسماء الباراميترات
-                                # أي رابط ليه نفس البصمة دي هيعتبر تكرار ومش هيتحفظ
                                 signature = (parsed.netloc, parsed.path, param_keys)
 
                                 if signature not in seen_signatures:
@@ -183,18 +176,14 @@ def extract_parameter_urls(place):
                                     unique_urls.append(url)
                                     count += 1
                             except Exception:
-                                # لو حصل ايرور في تحليل رابط معين، عده ومتقفش
                                 pass
 
-            # 2. حفظ النتائج النظيفة في الملف
-            # استخدمنا 'w' عشان يكتب النتائج الجديدة، لو عاوز 'a' غيرها
             with open(output_file, 'w', encoding='utf-8') as f_out:
                 for unique_url in unique_urls:
                     f_out.write(unique_url + "\n")
 
             print(colored(f"[+] Done! Found {count} UNIQUE parameter URLs. Saved to {output_file}", "cyan"))
 
-            # تعديل الصلاحيات
             subprocess.run(f"chmod -R 777 {output_file}", shell=True)
 
         else:
@@ -286,11 +275,9 @@ def scan_sqli(url, place,use_tor=False):
                 payload = line.split("Payload:")[1].strip()
                 injections.append({"type": current_type, "payload": payload})
 
-        # الشرط: لو لقينا بايلودز أو كلمة available databases
         if injections or "available databases" in result.stdout:
             print(colored(f"[!!!] VULNERABLE TO SQLi: {url}", "green", attrs=['bold']))
 
-            # حفظ النتائج بتنسيق مرتب
             with open(place + "/vulnerable_sqli.txt", "a") as f:
                 f.write(f"Target: {url}\n")
 
@@ -324,27 +311,22 @@ def SQLI( place,use_tor=False):
 def scan_xss(url, place,use_tor=False):
     print(colored(f"[+] Scanning for XSS: {url}","cyan"))
     proxy_flag = get_proxy_config("dalfox", use_tor)
-    # --no-color: مهم جداً عشان النصوص تتخزن نظيفة من غير رموز الألوان
     command = f"dalfox url '{url}' --no-color {proxy_flag}"
 
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-        # نقسم المخرجات لسطور عشان نفحص كل سطر لوحده
         output_lines = result.stdout.splitlines()
 
         found_vulnerability = False
         captured_pocs = []
 
         for line in output_lines:
-            # Dalfox بيحط اللينك المصاب والبايلود جنب كلمة [POC]
             if "[POC]" in line:
                 found_vulnerability = True
-                # تنظيف السطر ومسح المسافات الزايدة
                 poc_line = line.replace("[POC]", "").strip()
                 captured_pocs.append(poc_line)
 
-        # لو لقينا ثغرات، نفتح الملف ونكتب التفاصيل
         if found_vulnerability:
             print(colored(f"[!!!] VULNERABLE TO XSS: {url}","green" ,attrs=['bold']))
             with open(place + "/vulnerable_xss.txt", "a") as f:
@@ -368,7 +350,7 @@ def XSS( place,use_tor=False):
     except Exception as e:
         print(colored("[-] Error occured while XSS", 'red'))
 ########################################
-############   INFODIS AND CMS   ################
+############   INFODIS  ################
 def scan_info_disclosure_nikto(url, place):
     print(colored(f"[+] Scanning for Info Disclosure using Nikto: {url}", "cyan"))
 
@@ -404,24 +386,21 @@ def scan_info_disclosure_nikto(url, place):
 
     except Exception as e:
         print(colored(f"Error Nikto Scan {url}: {e}", "red"))
+########################################
+############## CMS #####################
 def scan_cms(url, place):
     print(colored(f"[+] Fingerprinting CMS for: {url}", "cyan"))
 
-    # --color=never: عشان المخرجات تكون نص صافي ونعرف نعملها parsing
-    # -v: verbose عشان يجيب تفاصيل أكتر
+
     command = f"whatweb '{url}' --color=never -v"
 
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-        # هنحاول نستخرج أهم معلومات بس عشان التقرير ميبقاش زحمة
         output = result.stdout
         cms_info = []
 
-        # Regex يدور على أي حاجة فيها كلمة CMS أو إصدارات
-        # WhatWeb بيكتب النتايج بوضوح، احنا هناخد السطر اللي فيه "Summary" أو Plugins
 
-        # طريقة بسيطة: حفظ التقرير كما هو لكن منظم
         if output:
             print(colored(f"[+] CMS Info Found for: {url}", "green"))
 
@@ -430,10 +409,8 @@ def scan_cms(url, place):
                 f.write(f"Target: {url}\n")
                 f.write("Details:\n")
 
-                # تنظيف المخرجات: ناخد السطور المهمة بس
                 for line in output.splitlines():
                     line = line.strip()
-                    # WhatWeb بيرجع سطور كتير، احنا عاوزين اللي فيها معلومات
                     if line and not line.startswith("http"):
                         f.write(f"  {line}\n")
 
@@ -448,11 +425,10 @@ def scan_cms(url, place):
 def get_file_length(filename):
     try:
         with open(filename, 'r') as f:
-            # دالة sum دي سريعة جداً وبتعد السطور اللي فيها كلام بس (عشان لو فيه سطور فاضية متتحسبش)
             count = sum(1 for line in f if line.strip())
         return count
     except FileNotFoundError:
-        return 0  # لو الملف مش موجود نرجع صفر
+        return 0
     except Exception as e:
         print(f"Error reading {filename}: {e}")
         return 0
@@ -461,12 +437,11 @@ def count_vulnerabilities(filename):
     try:
         with open(filename, 'r') as f:
             for line in f:
-                # بنعد المرات اللي كلمة Target ظهرت فيها في بداية السطر
                 if line.strip().startswith("Target:") or line.strip().startswith("[VULN CHECK]") or line.strip().startswith("[System File Access"):
                     count += 1
         return count
     except FileNotFoundError:
-        return 0  # لو الملف مش موجود (يعني مفيش ثغرات لسه)
+        return 0
 def SumrizeTxt(website,place):
     try:
         try:
@@ -558,7 +533,6 @@ ____________________________
 ######################################
 ########     CVE  Detector   ########
 def clean_version(raw_version):
-    # تحويل القائمة لنص
     if isinstance(raw_version, list):
         if len(raw_version) > 0:
             ver_str = str(raw_version[0])
@@ -951,7 +925,6 @@ def generate_json_report(domain, place):
 
                     elif line.startswith("Summary"):
                         raw_summary = line.split(":", 1)[-1].strip()
-                        # Summary بيجي شكله: PHP[5.6], HTTPServer[nginx]
                         techs = raw_summary.split(", ")
                         for tech in techs:
                             cms_data["detected_technologies"].append(tech.strip())
@@ -1060,7 +1033,7 @@ def generate_json_report(domain, place):
         },
         "reconnaissance": {
             "subdomains_count": len(read_lines("finalSubs.txt")),
-            "subdomains_list": read_lines("finalSubs.txt"),  # اختياري لو القائمة مش ضخمة
+            "subdomains_list": read_lines("finalSubs.txt"),
             "urls_crawled_count": len(read_lines("hackrwlerurls.txt")),
             "fuzzing_targets_count": len(read_lines("Parameters.txt"))
         },
@@ -1094,7 +1067,7 @@ def generate_json_report(domain, place):
         return None
 #######################################
 ############       AI   ###############
-def generate_ai_report(apikey,json_data,place):
+def generate_ai_report(apikey,gork,json_data,place):
     api_key = apikey
 
     if not api_key:
@@ -1105,48 +1078,29 @@ def generate_ai_report(apikey,json_data,place):
 
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-pro-latest')
+        model = genai.GenerativeModel('gemini-2.0-flash')
 
         prompt = f"""
-        ACT AS A SENIOR CYBERSECURITY CONSULTANT AND PENETRATION TESTER.
-        
-        YOUR TASK:
-        Analyze the provided JSON vulnerability scan data from the tool "RecTool" (DEPI Graduation Project) and generate a world-class, comprehensive penetration test report in Markdown format.
+        Act as a Senior Cybersecurity Consultant.
+Given JSON vulnerability scan results from "RecTool", generate a full professional penetration testing report in Markdown.
+REPORT MUST INCLUDE:
+1. Executive Summary
+   - Security Score (0–100)
+   - Table of Critical/High/Medium/Low counts
+   - Business impact paragraph
+2. Detailed Vulnerability Analysis
+   - For each finding: severity (with emoji), title, URL, parameter, attack vector explanation, business impact
+3. Remediation & Code Patches
+   - Detect tech stack from URL extension (.php, .py, .js...)
+   - Provide: vulnerable code example + secure patched code
+4. Defense-in-Depth
+   - WAF rules, server hardening, config recommendations
+If JSON is empty → generate a “Clean Health Certificate” + general hardening tips.
+INPUT:
+{json_data}
+OUTPUT:
+Professional Markdown only.
 
-        TARGET AUDIENCE:
-        1. Executive Management (High-level risk overview).
-        2. Developers & System Admins (Technical remediation and code fixes).
-
-        REPORT STRUCTURE & REQUIREMENTS:
-
-        1. 🚨 EXECUTIVE SUMMARY
-           - Provide an overall "Security Score" (0-100) based on findings.
-           - Create a Markdown Table summarizing counts: [Critical, High, Medium, Low].
-           - Write a short paragraph explaining the business impact (Financial loss, Reputation damage) if these are not fixed.
-
-        2. 🔍 DETAILED VULNERABILITY ANALYSIS (Iterate through findings)
-           For each vulnerability found in the JSON:
-           - **Title & Severity:** Use emojis (e.g., 🔴 Critical, 🟠 High).
-           - **The Location:** Specific URL and Parameter.
-           - **The Attack Vector:** Explain HOW the payload works in simple terms.
-           - **Business Impact:** What can an attacker actually DO? (e.g., "Dump the entire database", "Access server files").
-
-        3. 🛠️ REMEDIATION & CODE PATCHES (THE MOST IMPORTANT PART)
-           - Detect the technology stack from the URLs (e.g., if .php -> provide PHP code, if .py -> Python).
-           - **Vulnerable Code Example:** Write a hypothetical snippet of how the code likely looks right now.
-           - **Secure Code Patch:** Write the CORRECT, SECURE code using industry best practices (e.g., Prepared Statements for SQLi, Input Sanitization for XSS).
-           
-        4. 🛡️ DEFENSE IN DEPTH SUGGESTIONS
-           - Suggest WAF rules or server configurations (like .htaccess or Nginx config) to block these attacks globally.
-
-        INPUT DATA:
-        {json_data}
-
-        OUTPUT FORMAT:
-        - Use professional Markdown.
-        - Use bolding, lists, and code blocks (` ``` `) extensively.
-        - Tone: Urgent but Professional.
-        - If the JSON is empty or has no vulnerabilities, write a "Certificate of Clean Health" but suggest general hardening.
         """
         response = model.generate_content(prompt)
 
@@ -1154,9 +1108,70 @@ def generate_ai_report(apikey,json_data,place):
             f.write(response.text)
 
         print("[+] AI Report Generated: AI_Report.md")
+        return True
+    except Exception as e:
+        print(colored("gemini Fail", "red", attrs=['bold']))
+        generate_ai_report_gorq(gork, json_data, place)
+def generate_ai_report_gorq(apikey, json_data, place):
+    api_key = apikey
+
+    if not api_key:
+        print("[!] No API Key found. Skipping AI Analysis.")
+        return
+
+    print("[*] Generative AI (Groq/Llama3) is analyzing vulnerabilities...")
+
+    try:
+        client = Groq(api_key=api_key)
+
+        system_instruction = """
+        Act as a Senior Cybersecurity Consultant.
+        Given JSON vulnerability scan results from "RecTool", generate a full professional penetration testing report in Markdown.
+        REPORT MUST INCLUDE:
+        1. Executive Summary
+           - Security Score (0–100)
+           - Table of Critical/High/Medium/Low counts
+           - Business impact paragraph
+        2. Detailed Vulnerability Analysis
+           - For each finding: severity (with emoji), title, URL, parameter, attack vector explanation, business impact
+        3. Remediation & Code Patches
+           - Detect tech stack from URL extension (.php, .py, .js...)
+           - Provide: vulnerable code example + secure patched code
+        4. Defense-in-Depth
+           - WAF rules, server hardening, config recommendations
+        If JSON is empty → generate a “Clean Health Certificate” + general hardening tips.
+        OUTPUT: Professional Markdown only.
+        """
+
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_instruction
+                },
+                {
+                    "role": "user",
+                    "content": f"INPUT DATA:\n{json_data}"
+                }
+            ],
+            model="llama-3.1-8b-instant",
+            temperature=0.5,
+        )
+
+        # استخراج النص
+        report_content = chat_completion.choices[0].message.content
+
+        # حفظ الملف
+        output_path = os.path.join(place, "AI_Report.md")
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(report_content)
+
+        print(f"[+] AI Report Generated: {output_path}")
 
     except Exception as e:
         print(f"[!] AI Error: {e}")
+
+
 
 ###############################################
 ##############      LFI     ###################
@@ -1266,9 +1281,7 @@ def scan_single_url(target_url):
     return None
 
 def run_lfi_scan(place, threads=20):
-    """
-    الفانكشن الرئيسية
-    """
+
 
     output_file=f"{place}/lfi_results.txt"
     urls_file_path=f"{place}/Parameters.txt"
@@ -1276,11 +1289,9 @@ def run_lfi_scan(place, threads=20):
     payloads_file_path = os.path.join(current_dir, 'WordLists', 'LFI.txt')
     print(colored(f"\n--- [ LFI Scanner Module ] ---", "yellow", attrs=['bold']))
 
-    # 1. تحميل البايلودز
-    # لو بعت None هيستخدم الافتراضي
+
     current_payloads = load_payloads_from_file(payloads_file_path)
 
-    # 2. قراءة اللينكات
     if not os.path.exists(urls_file_path):
         print(colored(f"[!] URLs file not found: {urls_file_path}", "red"))
         return
@@ -1288,12 +1299,10 @@ def run_lfi_scan(place, threads=20):
     with open(urls_file_path, 'r') as f:
         urls = [line.strip() for line in f if line.strip()]
 
-    # 3. تجهيز المهام
     tasks = []
     print(colored("[*] Generating attack vectors...", "blue"))
 
     for url in urls:
-        # بنبعت قائمة البايلودز هنا
         infected_links = generate_malicious_urls(url, current_payloads)
         tasks.extend(infected_links)
 
@@ -1303,7 +1312,6 @@ def run_lfi_scan(place, threads=20):
 
     print(colored(f"[*] Total Requests: {len(tasks)} | Threads: {threads}", "cyan"))
 
-    # 4. تشغيل الـ Threads
     vulnerabilities = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
         results = executor.map(scan_single_url, tasks)
@@ -1337,7 +1345,6 @@ def load_payloads_from_filess(file_path):
         print(colored(f"[!] Error reading payload file: {e}", "red"))
         return DEFAULT_PAYLOADS
 
-
 def generate_ssrf_vectors(url, payloads_list):
     parsed = urlparse(url)
     query_params = parse_qs(parsed.query)
@@ -1360,8 +1367,6 @@ def generate_ssrf_vectors(url, payloads_list):
             vectors.append(full_url)
 
     return vectors
-
-
 def scan_single_urll(target_url):
     try:
         req = requests.get(target_url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=False)
@@ -1390,8 +1395,6 @@ def scan_single_urll(target_url):
         pass
 
     return None
-
-
 def run_ssrf_scan(place, threads=20):
     print(colored(f"\n--- [ SSRF Scanner Module ] ---", "yellow", attrs=['bold']))
     output_file = f"{place}/SSRF_results.txt"
