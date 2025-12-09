@@ -69,7 +69,7 @@ TELEGRAM_CHAT_ID=your_chat_id
 
 # --- AI Configuration (Required for Smart Report) ---
 GEMINI_API_KEY=your_google_gemini_key
-
+GORQ_API_KEY=your_gorq_key
 # --- Recon APIs (Optional but Recommended) ---
 SHODAN_API_KEY=your_shodan_key
 SECURITYTRAILS_API_KEY=your_key
